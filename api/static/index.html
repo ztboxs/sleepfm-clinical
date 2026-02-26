@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SleepFM Clinical - API 控制台</title>
+<style>
+:root {
+  --primary: #1877f2;
+  --primary-hover: #166fe5;
+  --primary-light: #e7f3ff;
+  --bg: #f0f2f5;
+  --card: #ffffff;
+  --text-primary: #1c1e21;
+  --text-secondary: #65676b;
+  --text-tertiary: #8a8d91;
+  --border: #dadde1;
+  --border-light: #e4e6eb;
+  --success: #31a24c;
+  --success-bg: #e6f4ea;
+  --error: #e4405f;
+  --error-bg: #fce8ec;
+  --warning: #f7b928;
+  --warning-bg: #fef3cd;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 2px rgba(0,0,0,0.1);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.1);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --transition: all 0.2s ease;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--primary), #6c5ce7);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.header h1 span {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 14px;
+  margin-left: 8px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-badge.online { background: var(--success-bg); color: var(--success); }
+.status-badge.offline { background: var(--error-bg); color: var(--error); }
+.status-badge.loading { background: var(--warning-bg); color: #856404; }
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: center;
+}
+
+.tab:hover { background: var(--bg); color: var(--text-primary); }
+.tab.active { background: var(--primary); color: white; box-shadow: var(--shadow); }
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.card-header .desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.card-body { padding: 20px; }
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--card);
+  transition: var(--transition);
+  outline: none;
+}
+
+input:focus, select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.file-upload {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+}
+
+.file-upload:hover, .file-upload.dragover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.file-upload.has-file {
+  border-color: var(--success);
+  background: var(--success-bg);
+}
+
+.file-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-upload-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.file-upload-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.file-upload-text strong {
+  color: var(--primary);
+}
+
+.file-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--success);
+  margin-top: 4px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  min-width: 140px;
+}
+
+.btn-primary:hover { background: var(--primary-hover); box-shadow: var(--shadow-md); }
+.btn-primary:disabled { background: var(--border); color: var(--text-tertiary); cursor: not-allowed; }
+
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.btn-outline:hover { background: var(--primary-light); }
+
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+
+.checkbox-group {
+  display: flex;
+  gap: 16px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.checkbox-item span {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.progress-bar {
+  display: none;
+  margin-top: 16px;
+}
+
+.progress-bar.active { display: block; }
+
+.progress-track {
+  height: 4px;
+  background: var(--border-light);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 2px;
+  width: 0;
+  transition: width 0.3s;
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.progress-step {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress-step.active { color: var(--primary); font-weight: 600; }
+.progress-step.done { color: var(--success); }
+
+.result-section { display: none; }
+.result-section.active { display: block; }
+
+.result-banner {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.result-banner.success { background: var(--success-bg); color: var(--success); }
+.result-banner.error { background: var(--error-bg); color: var(--error); }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 14px;
+  text-align: center;
+}
+
+.stat-card .value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-card .label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  letter-spacing: 0.5px;
+}
+
+.stat-card .pct {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.table-container {
+  overflow-x: auto;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+thead { background: var(--bg); }
+
+th, td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+th {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--primary-light); }
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rank-badge.gold { background: #f7b928; }
+.rank-badge.silver { background: #8a8d91; }
+.rank-badge.bronze { background: #cd7f32; }
+
+.epoch-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+}
+
+.sub-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border-light);
+  margin-bottom: 16px;
+}
+
+.sub-tab {
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: var(--transition);
+}
+
+.sub-tab:hover { color: var(--text-primary); }
+.sub-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.health-card {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.health-card h3 {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.health-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.health-item .key { color: var(--text-secondary); font-size: 14px; }
+.health-item .val { font-weight: 600; font-size: 14px; }
+
+.json-viewer {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  border-radius: var(--radius);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.channel-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.channel-tag {
+  padding: 3px 10px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+@media (max-width: 768px) {
+  .form-row { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .tabs { flex-wrap: wrap; }
+}
+
+.preprocess-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.info-block h4 {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.help-text {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="logo">S</div>
+    <h1>SleepFM<span>临床模型 API 控制台</span></h1>
+  </div>
+  <div id="serverStatus" class="status-badge loading">
+    <div class="status-dot"></div>
+    <span>连接中...</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="tabs">
+    <button class="tab active" data-panel="predict">完整推理</button>
+    <button class="tab" data-panel="preprocess">数据预处理</button>
+    <button class="tab" data-panel="embed">生成嵌入</button>
+    <button class="tab" data-panel="health">系统状态</button>
+    <button class="tab" data-panel="labels">疾病标签映射</button>
+  </div>
+
+  <!-- ==================== 完整推理 ==================== -->
+  <div id="panel-predict" class="panel active">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>完整推理</h2>
+          <div class="desc">上传 EDF 文件，运行睡眠分期和/或疾病风险预测</div>
+        </div>
+        <span class="btn-sm btn-outline" style="cursor:default">POST /api/v1/predict</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>PSG 记录文件 (EDF)</label>
+          <div class="file-upload" id="predictFileUpload">
+            <input type="file" id="predictFile" accept=".edf">
+            <div class="file-upload-icon">&#128203;</div>
+            <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
+            <div class="file-name" id="predictFileName"></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>年龄（归一化 0~1）</label>
+            <input type="number" id="predictAge" step="0.01" min="0" max="1" placeholder="例如 0.45">
+            <div class="help-text">归一化后的年龄值，范围 0 到 1</div>
+          </div>
+          <div class="form-group">
+            <label>性别</label>
+            <select id="predictGender">
+              <option value="0">女性 (0)</option>
+              <option value="1">男性 (1)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>推理任务</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item">
+              <input type="checkbox" id="taskStaging" checked>
+              <span>睡眠分期</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="taskDisease" checked>
+              <span>疾病风险预测</span>
+            </label>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="predictBtn" onclick="runPredict()">
+          开始推理
+        </button>
+
+        <div class="progress-bar" id="predictProgress">
+          <div class="progress-track"><div class="progress-fill" id="predictProgressFill"></div></div>
+          <div class="progress-steps">
+            <span class="progress-step" id="step0">数据预处理</span>
+            <span class="progress-step" id="step1">生成嵌入</span>
+            <span class="progress-step" id="step2">睡眠分期</span>
+            <span class="progress-step" id="step3">疾病预测</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-section" id="predictResults">
+      <div class="result-banner success" id="predictBanner"></div>
+
+      <div class="sub-tabs" id="resultSubTabs"></div>
+
+      <div id="resultStaging" class="panel">
+        <div class="card">
+          <div class="card-header">
+            <h2>睡眠阶段分布</h2>
+          </div>
+          <div class="card-body">
+            <div class="stats-grid" id="stagingStats"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>逐时段详情</h2>
+            <div class="desc" id="epochCount"></div>
+          </div>
+          <div class="card-body">
+            <div class="epoch-list">
+              <table>
+                <thead><tr><th>序号</th><th>时间</th><th>阶段</th><th>清醒</th><th>N1</th><th>N2</th><th>N3</th><th>REM</th></tr></thead>
+                <tbody id="epochTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultDisease" class="panel">
+        <div class="card">
+          <div class="card-header">
+            <h2>疾病风险排名</h2>
+            <div class="desc">Cox 比例风险模型评分</div>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table>
+                <thead><tr><th>排名</th><th>疾病编码</th><th>疾病名称</th><th>风险评分</th></tr></thead>
+                <tbody id="diseaseTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultRaw" class="panel">
+        <div class="card">
+          <div class="card-header"><h2>原始 JSON 响应</h2></div>
+          <div class="card-body">
+            <div class="json-viewer" id="predictRawJson"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 数据预处理 ==================== -->
+  <div id="panel-preprocess" class="panel">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>EDF 数据预处理</h2>
+          <div class="desc">上传 EDF 文件，查看通道信息和数据统计</div>
+        </div>
+        <span class="btn-sm btn-outline" style="cursor:default">POST /api/v1/preprocess</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>PSG 记录文件 (EDF)</label>
+          <div class="file-upload" id="preprocFileUpload">
+            <input type="file" id="preprocFile" accept=".edf">
+            <div class="file-upload-icon">&#128203;</div>
+            <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
+            <div class="file-name" id="preprocFileName"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="preprocBtn" onclick="runPreprocess()">开始预处理</button>
+      </div>
+    </div>
+    <div class="result-section" id="preprocResults">
+      <div class="card">
+        <div class="card-header"><h2>预处理结果</h2></div>
+        <div class="card-body">
+          <div class="preprocess-info" id="preprocInfo"></div>
+          <div style="margin-top:16px">
+            <div class="json-viewer" id="preprocRawJson"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 生成嵌入 ==================== -->
+  <div id="panel-embed" class="panel">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>生成嵌入向量</h2>
+          <div class="desc">上传 EDF 文件，按模态生成嵌入向量</div>
+        </div>
+        <span class="btn-sm btn-outline" style="cursor:default">POST /api/v1/embed</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>PSG 记录文件 (EDF)</label>
+          <div class="file-upload" id="embedFileUpload">
+            <input type="file" id="embedFile" accept=".edf">
+            <div class="file-upload-icon">&#128203;</div>
+            <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
+            <div class="file-name" id="embedFileName"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="embedBtn" onclick="runEmbed()">生成嵌入</button>
+      </div>
+    </div>
+    <div class="result-section" id="embedResults">
+      <div class="card">
+        <div class="card-header"><h2>嵌入结果</h2></div>
+        <div class="card-body">
+          <div id="embedInfo"></div>
+          <div style="margin-top:16px">
+            <div class="json-viewer" id="embedRawJson"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 系统状态 ==================== -->
+  <div id="panel-health" class="panel">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>系统状态</h2>
+          <div class="desc">服务运行状态、GPU 信息与模型加载情况</div>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="loadHealth()">刷新</button>
+      </div>
+      <div class="card-body">
+        <div class="health-grid" id="healthGrid">
+          <div style="text-align:center; color:var(--text-tertiary); padding:20px;">加载中...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 疾病标签映射 ==================== -->
+  <div id="panel-labels" class="panel">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>疾病标签映射</h2>
+          <div class="desc">共 1065 种疾病，含 Phecode 标识符</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="labelSearch" placeholder="搜索疾病名称..." style="width:240px" oninput="filterLabels()">
+          <button class="btn btn-sm btn-outline" onclick="loadLabels()">刷新</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="table-container">
+          <table>
+            <thead><tr><th>索引</th><th>疾病编码</th><th>疾病名称</th></tr></thead>
+            <tbody id="labelsTableBody">
+              <tr><td colspan="3" style="text-align:center;color:var(--text-tertiary);padding:20px">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API_BASE = '';
+let allLabels = [];
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+    if (tab.dataset.panel === 'health') loadHealth();
+    if (tab.dataset.panel === 'labels' && allLabels.length === 0) loadLabels();
+  });
+});
+
+function setupFileUpload(uploadId, inputId, nameId) {
+  const area = document.getElementById(uploadId);
+  const input = document.getElementById(inputId);
+  const nameEl = document.getElementById(nameId);
+
+  ['dragenter', 'dragover'].forEach(e => area.addEventListener(e, () => area.classList.add('dragover')));
+  ['dragleave', 'drop'].forEach(e => area.addEventListener(e, () => area.classList.remove('dragover')));
+
+  input.addEventListener('change', () => {
+    if (input.files.length) {
+      nameEl.textContent = input.files[0].name + ' (' + (input.files[0].size / 1024 / 1024).toFixed(1) + ' MB)';
+      area.classList.add('has-file');
+    }
+  });
+}
+
+setupFileUpload('predictFileUpload', 'predictFile', 'predictFileName');
+setupFileUpload('preprocFileUpload', 'preprocFile', 'preprocFileName');
+setupFileUpload('embedFileUpload', 'embedFile', 'embedFileName');
+
+async function checkServer() {
+  const badge = document.getElementById('serverStatus');
+  try {
+    const r = await fetch(API_BASE + '/api/v1/health');
+    if (r.ok) {
+      badge.className = 'status-badge online';
+      badge.innerHTML = '<div class="status-dot"></div><span>已连接</span>';
+    } else throw new Error();
+  } catch {
+    badge.className = 'status-badge offline';
+    badge.innerHTML = '<div class="status-dot"></div><span>已断开</span>';
+  }
+}
+
+const MODEL_NAME_MAP = {
+  'base_model': '基础嵌入模型',
+  'sleep_staging_model': '睡眠分期模型',
+  'disease_prediction_model': '疾病预测模型',
+};
+
+async function loadHealth() {
+  const grid = document.getElementById('healthGrid');
+  try {
+    const r = await fetch(API_BASE + '/api/v1/health');
+    const d = await r.json();
+    grid.innerHTML = `
+      <div class="health-card">
+        <h3>服务状态</h3>
+        <div class="health-item"><span class="key">状态</span><span class="val" style="color:var(--success)">${d.status === 'healthy' ? '运行正常' : d.status}</span></div>
+      </div>
+      <div class="health-card">
+        <h3>GPU 信息</h3>
+        <div class="health-item"><span class="key">设备</span><span class="val">${d.gpu.name}</span></div>
+        <div class="health-item"><span class="key">总显存</span><span class="val">${d.gpu.memory_total_mb} MB</span></div>
+        <div class="health-item"><span class="key">已使用</span><span class="val">${d.gpu.memory_used_mb} MB</span></div>
+      </div>
+      <div class="health-card">
+        <h3>模型加载</h3>
+        ${Object.entries(d.models_loaded).map(([k,v]) => `
+          <div class="health-item">
+            <span class="key">${MODEL_NAME_MAP[k] || k}</span>
+            <span class="val" style="color:${v ? 'var(--success)' : 'var(--error)'}">${v ? '已加载' : '未加载'}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch (e) {
+    grid.innerHTML = `<div style="color:var(--error);padding:20px">加载系统状态失败：${e.message}</div>`;
+  }
+}
+
+async function loadLabels() {
+  const tbody = document.getElementById('labelsTableBody');
+  try {
+    const r = await fetch(API_BASE + '/api/v1/label_mapping');
+    const d = await r.json();
+    allLabels = d.mappings;
+    renderLabels(allLabels);
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--error);padding:20px">加载失败：${e.message}</td></tr>`;
+  }
+}
+
+function renderLabels(labels) {
+  const tbody = document.getElementById('labelsTableBody');
+  tbody.innerHTML = labels.map(l => `
+    <tr><td>${l.label_idx}</td><td>${l.phecode}</td><td>${l.phenotype}</td></tr>
+  `).join('');
+}
+
+function filterLabels() {
+  const q = document.getElementById('labelSearch').value.toLowerCase();
+  renderLabels(allLabels.filter(l => l.phenotype.toLowerCase().includes(q) || l.phecode.includes(q)));
+}
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  if (loading) {
+    btn.disabled = true;
+    btn.dataset.origText = btn.textContent;
+    btn.innerHTML = '<div class="spinner"></div> 处理中...';
+  } else {
+    btn.disabled = false;
+    btn.textContent = btn.dataset.origText || '提交';
+  }
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function syntaxHighlight(json) {
+  if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+  return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?)/g, m =>
+      m.endsWith(':') ? `<span style="color:#9cdcfe">${m}</span>` : `<span style="color:#ce9178">${m}</span>`)
+    .replace(/\b(true|false)\b/g, '<span style="color:#569cd6">$1</span>')
+    .replace(/\b(null)\b/g, '<span style="color:#569cd6">$1</span>')
+    .replace(/\b(-?\d+\.?\d*)\b/g, '<span style="color:#b5cea8">$1</span>');
+}
+
+const STAGE_NAME_MAP = { Wake: '清醒', N1: 'N1 浅睡', N2: 'N2 浅睡', N3: 'N3 深睡', REM: 'REM 快速眼动' };
+
+async function runPredict() {
+  const file = document.getElementById('predictFile').files[0];
+  if (!file) { alert('请选择一个 EDF 文件'); return; }
+
+  const doStaging = document.getElementById('taskStaging').checked;
+  const doDisease = document.getElementById('taskDisease').checked;
+  if (!doStaging && !doDisease) { alert('请至少选择一项推理任务'); return; }
+
+  const age = document.getElementById('predictAge').value;
+  const gender = document.getElementById('predictGender').value;
+  if (doDisease && !age) { alert('疾病风险预测需要填写年龄'); return; }
+
+  const tasks = [];
+  if (doStaging) tasks.push('sleep_staging');
+  if (doDisease) tasks.push('disease_prediction');
+
+  setLoading('predictBtn', true);
+
+  const progress = document.getElementById('predictProgress');
+  progress.classList.add('active');
+  animateProgress();
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('tasks', tasks.join(','));
+  if (age) fd.append('age', age);
+  fd.append('gender', gender);
+
+  try {
+    const r = await fetch(API_BASE + '/api/v1/predict', { method: 'POST', body: fd });
+    const d = await r.json();
+
+    if (!r.ok) throw new Error(d.detail || '请求失败');
+
+    document.getElementById('predictProgressFill').style.width = '100%';
+    showPredictResults(d, doStaging, doDisease);
+  } catch (e) {
+    const banner = document.getElementById('predictBanner');
+    banner.className = 'result-banner error';
+    banner.textContent = '错误：' + e.message;
+    document.getElementById('predictResults').classList.add('active');
+    document.getElementById('resultSubTabs').innerHTML = '';
+  } finally {
+    setLoading('predictBtn', false);
+    setTimeout(() => progress.classList.remove('active'), 1000);
+  }
+}
+
+function animateProgress() {
+  const fill = document.getElementById('predictProgressFill');
+  fill.style.width = '0';
+  let w = 0;
+  const iv = setInterval(() => {
+    w += Math.random() * 8;
+    if (w >= 90) { clearInterval(iv); w = 90; }
+    fill.style.width = w + '%';
+  }, 300);
+}
+
+function showPredictResults(data, doStaging, doDisease) {
+  const results = document.getElementById('predictResults');
+  results.classList.add('active');
+
+  const banner = document.getElementById('predictBanner');
+  banner.className = 'result-banner success';
+  banner.textContent = '推理完成';
+
+  const tabsDiv = document.getElementById('resultSubTabs');
+  let tabs = [];
+  if (doStaging && data.sleep_staging) tabs.push({ id: 'resultStaging', label: '睡眠分期' });
+  if (doDisease && data.disease_prediction) tabs.push({ id: 'resultDisease', label: '疾病风险' });
+  tabs.push({ id: 'resultRaw', label: '原始 JSON' });
+
+  tabsDiv.innerHTML = tabs.map((t, i) =>
+    `<button class="sub-tab ${i===0?'active':''}" onclick="switchSubTab('${t.id}', this)">${t.label}</button>`
+  ).join('');
+
+  ['resultStaging', 'resultDisease', 'resultRaw'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
+  });
+  if (tabs.length) document.getElementById(tabs[0].id).classList.add('active');
+
+  if (data.sleep_staging) {
+    const ss = data.sleep_staging;
+    const colors = { Wake: '#ff6b6b', N1: '#ffd93d', N2: '#6bcb77', N3: '#4d96ff', REM: '#9b59b6' };
+    document.getElementById('stagingStats').innerHTML = Object.entries(ss.summary).map(([name, s]) => `
+      <div class="stat-card">
+        <div class="value" style="color:${colors[name] || 'inherit'}">${s.count}</div>
+        <div class="label">${STAGE_NAME_MAP[name] || name}</div>
+        <div class="pct">${s.percentage}%</div>
+      </div>
+    `).join('');
+
+    document.getElementById('epochCount').textContent = '共 ' + ss.total_epochs + ' 个时段（每段 5 秒）';
+    const tbody = document.getElementById('epochTableBody');
+    tbody.innerHTML = ss.epochs.slice(0, 500).map(e => {
+      const p = e.probabilities;
+      return `<tr>
+        <td>${e.index}</td>
+        <td>${formatTime(e.start_sec)} - ${formatTime(e.end_sec)}</td>
+        <td><strong style="color:${colors[e.predicted_stage]}">${STAGE_NAME_MAP[e.predicted_stage] || e.predicted_stage}</strong></td>
+        <td>${p.Wake.toFixed(3)}</td>
+        <td>${p.N1.toFixed(3)}</td>
+        <td>${p.N2.toFixed(3)}</td>
+        <td>${p.N3.toFixed(3)}</td>
+        <td>${p.REM.toFixed(3)}</td>
+      </tr>`;
+    }).join('');
+    if (ss.epochs.length > 500) {
+      tbody.innerHTML += `<tr><td colspan="8" style="text-align:center;color:var(--text-tertiary)">仅显示前 500 条，共 ${ss.total_epochs} 个时段</td></tr>`;
+    }
+  }
+
+  if (data.disease_prediction) {
+    const dp = data.disease_prediction;
+    document.getElementById('diseaseTableBody').innerHTML = dp.top_risks.map(r => {
+      const badge = r.rank <= 1 ? 'gold' : r.rank <= 2 ? 'silver' : r.rank <= 3 ? 'bronze' : '';
+      return `<tr>
+        <td><span class="rank-badge ${badge}">${r.rank}</span></td>
+        <td>${r.phecode}</td>
+        <td>${r.phenotype}</td>
+        <td><strong>${r.hazard_score.toFixed(4)}</strong></td>
+      </tr>`;
+    }).join('');
+  }
+
+  const display = JSON.parse(JSON.stringify(data));
+  if (display.sleep_staging && display.sleep_staging.epochs.length > 10) {
+    const total = display.sleep_staging.epochs.length;
+    display.sleep_staging.epochs = display.sleep_staging.epochs.slice(0, 10);
+    display.sleep_staging.epochs.push({ '...': `已省略 ${total - 10} 条记录` });
+  }
+  document.getElementById('predictRawJson').innerHTML = syntaxHighlight(display);
+}
+
+function switchSubTab(panelId, btn) {
+  ['resultStaging', 'resultDisease', 'resultRaw'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
+  });
+  document.getElementById(panelId).classList.add('active');
+  btn.parentElement.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function runPreprocess() {
+  const file = document.getElementById('preprocFile').files[0];
+  if (!file) { alert('请选择一个 EDF 文件'); return; }
+
+  setLoading('preprocBtn', true);
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const r = await fetch(API_BASE + '/api/v1/preprocess', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || '请求失败');
+
+    document.getElementById('preprocResults').classList.add('active');
+    const info = document.getElementById('preprocInfo');
+    const ch = d.channels;
+    info.innerHTML = `
+      <div class="info-block">
+        <h4>记录信息</h4>
+        <div class="health-item"><span class="key">时长</span><span class="val">${formatTime(d.duration_seconds)}（${d.duration_seconds.toFixed(0)} 秒）</span></div>
+        <div class="health-item"><span class="key">采样率</span><span class="val">${d.sample_rate} Hz</span></div>
+      </div>
+      <div class="info-block">
+        <h4>按模态分组的通道</h4>
+        ${['BAS','RESP','EKG','EMG'].map(m => `
+          <div style="margin-bottom:8px">
+            <strong style="font-size:13px;color:var(--text-secondary)">${m}</strong>
+            <div class="channel-tags" style="margin-top:4px">
+              ${(ch[m]||[]).length ? (ch[m]||[]).map(c => `<span class="channel-tag">${c}</span>`).join('') : '<span style="color:var(--text-tertiary);font-size:13px">未找到通道</span>'}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    document.getElementById('preprocRawJson').innerHTML = syntaxHighlight(d);
+  } catch (e) {
+    alert('错误：' + e.message);
+  } finally {
+    setLoading('preprocBtn', false);
+  }
+}
+
+async function runEmbed() {
+  const file = document.getElementById('embedFile').files[0];
+  if (!file) { alert('请选择一个 EDF 文件'); return; }
+
+  setLoading('embedBtn', true);
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const r = await fetch(API_BASE + '/api/v1/embed', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || '请求失败');
+
+    document.getElementById('embedResults').classList.add('active');
+    const info = document.getElementById('embedInfo');
+    info.innerHTML = `
+      <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+        ${Object.entries(d.embeddings).map(([mod, e]) => `
+          <div class="stat-card">
+            <div class="value" style="font-size:18px">${mod}</div>
+            <div class="label">维度：${e.shape.join(' x ')}</div>
+          </div>
+        `).join('')}
+        <div class="stat-card">
+          <div class="value" style="font-size:18px">${d.num_5min_chunks}</div>
+          <div class="label">5 分钟分片数</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" style="font-size:18px">${d.embed_dim}</div>
+          <div class="label">嵌入维度</div>
+        </div>
+      </div>
+    `;
+    document.getElementById('embedRawJson').innerHTML = syntaxHighlight(d);
+  } catch (e) {
+    alert('错误：' + e.message);
+  } finally {
+    setLoading('embedBtn', false);
+  }
+}
+
+checkServer();
+setInterval(checkServer, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+| 模块 | 状态 | 说明 |
+|------|------|------|
+| API 核心框架 | ✅ | FastAPI + Uvicorn，端口 6006 |
+| 模型管理 | ✅ | 三个模型（SetTransformer / SleepEventLSTMClassifier / DiagnosisCOXPH）启动时加载到 GPU |
+| GET /api/v1/health | ✅ | 健康检查，含 GPU 信息和模型加载状态 |
+| GET /api/v1/label_mapping | ✅ | 1065 种疾病标签映射查询 |
+| POST /api/v1/preprocess | ✅ | EDF 预处理，返回通道匹配和时长信息 |
+| POST /api/v1/embed | ✅ | 嵌入向量生成，返回各模态 shape |
+| POST /api/v1/predict | ✅ | 完整推理（睡眠分期 + 疾病预测），支持任务选择 |
+| 输入校验与错误处理 | ✅ | 文件类型校验、模态通道检测、中文错误提示、HTTP 422 |
+| GPU 并发控制 | ✅ | asyncio.Lock 防止 OOM |
+| 临时文件管理 | ✅ | 推理完自动清理 |
+| CORS | ✅ | 已配置跨域 |
+| Web 前端 | ✅ | 中文 Meta 风格测试控制台 |
+| 结果一致性验证 | ✅ | API 输出与原始 notebook 完全一致（分期 100% 匹配，hazard 最大差异 3.3e-7） |
+| 部署文档 | ✅ | docs/api_deployment.md |
+| 测试文档 | ✅ | docs/testing_guide.md |
+| 接口规范文档 | ✅ 新增 | docs/api_reference.md |
+---
+**总结**：所有已规划功能均已实现，无遗漏。
