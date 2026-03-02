@@ -579,6 +579,62 @@ tr:hover td { background: var(--primary-light); }
   color: var(--text-tertiary);
   margin-top: 4px;
 }
+
+.input-mode-toggle {
+  display: inline-flex;
+  gap: 0;
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 2px;
+  margin-bottom: 8px;
+}
+
+.input-mode-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.input-mode-btn.active {
+  background: var(--card);
+  color: var(--primary);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+}
+
+.url-input-wrapper {
+  display: none;
+}
+
+.url-input-wrapper.active {
+  display: block;
+}
+
+.url-input-wrapper input {
+  width: 100%;
+  padding: 12px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--card);
+  outline: none;
+  transition: var(--transition);
+}
+
+.url-input-wrapper input:focus {
+  border-color: var(--primary);
+  border-style: solid;
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
 </style>
 </head>
 <body>
@@ -617,11 +673,21 @@ tr:hover td { background: var(--primary-light); }
       <div class="card-body">
         <div class="form-group">
           <label>PSG 记录文件 (EDF)</label>
-          <div class="file-upload" id="predictFileUpload">
-            <input type="file" id="predictFile" accept=".edf">
-            <div class="file-upload-icon">&#128203;</div>
-            <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
-            <div class="file-name" id="predictFileName"></div>
+          <div class="input-mode-toggle">
+            <button class="input-mode-btn active" onclick="switchInputMode('predict','file',this)">上传文件</button>
+            <button class="input-mode-btn" onclick="switchInputMode('predict','url',this)">文件 URL</button>
+          </div>
+          <div id="predictFileMode">
+            <div class="file-upload" id="predictFileUpload">
+              <input type="file" id="predictFile" accept=".edf">
+              <div class="file-upload-icon">&#128203;</div>
+              <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
+              <div class="file-name" id="predictFileName"></div>
+            </div>
+          </div>
+          <div id="predictUrlMode" class="url-input-wrapper">
+            <input type="text" id="predictFileUrl" placeholder="输入 EDF 文件的下载地址，例如 https://your-storage.com/file.edf">
+            <div class="help-text">适用于对接平台不支持文件上传的场景，填写可公开访问的 EDF 文件 URL</div>
           </div>
         </div>
 
@@ -640,17 +706,24 @@ tr:hover td { background: var(--primary-light); }
           </div>
         </div>
 
-        <div class="form-group">
-          <label>推理任务</label>
-          <div class="checkbox-group">
-            <label class="checkbox-item">
-              <input type="checkbox" id="taskStaging" checked>
-              <span>睡眠分期</span>
-            </label>
-            <label class="checkbox-item">
-              <input type="checkbox" id="taskDisease" checked>
-              <span>疾病风险预测</span>
-            </label>
+        <div class="form-row">
+          <div class="form-group">
+            <label>推理任务</label>
+            <div class="checkbox-group">
+              <label class="checkbox-item">
+                <input type="checkbox" id="taskStaging" checked>
+                <span>睡眠分期</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="taskDisease" checked>
+                <span>疾病风险预测</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>最低风险评分阈值</label>
+            <input type="number" id="predictMinHazard" step="0.1" placeholder="留空返回全部，建议 7">
+            <div class="help-text">仅返回 hazard_score >= 该值的疾病，不填则返回全部 1065 种</div>
           </div>
         </div>
 
@@ -704,10 +777,10 @@ tr:hover td { background: var(--primary-light); }
         <div class="card">
           <div class="card-header">
             <h2>疾病风险排名</h2>
-            <div class="desc">Cox 比例风险模型评分</div>
+            <div class="desc" id="diseaseCount">Cox 比例风险模型评分</div>
           </div>
           <div class="card-body">
-            <div class="table-container">
+            <div class="epoch-list" style="max-height:600px">
               <table>
                 <thead><tr><th>排名</th><th>疾病编码</th><th>疾病名称</th><th>风险评分</th></tr></thead>
                 <tbody id="diseaseTableBody"></tbody>
@@ -741,11 +814,20 @@ tr:hover td { background: var(--primary-light); }
       <div class="card-body">
         <div class="form-group">
           <label>PSG 记录文件 (EDF)</label>
-          <div class="file-upload" id="preprocFileUpload">
-            <input type="file" id="preprocFile" accept=".edf">
-            <div class="file-upload-icon">&#128203;</div>
-            <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
-            <div class="file-name" id="preprocFileName"></div>
+          <div class="input-mode-toggle">
+            <button class="input-mode-btn active" onclick="switchInputMode('preproc','file',this)">上传文件</button>
+            <button class="input-mode-btn" onclick="switchInputMode('preproc','url',this)">文件 URL</button>
+          </div>
+          <div id="preprocFileMode">
+            <div class="file-upload" id="preprocFileUpload">
+              <input type="file" id="preprocFile" accept=".edf">
+              <div class="file-upload-icon">&#128203;</div>
+              <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
+              <div class="file-name" id="preprocFileName"></div>
+            </div>
+          </div>
+          <div id="preprocUrlMode" class="url-input-wrapper">
+            <input type="text" id="preprocFileUrl" placeholder="输入 EDF 文件的下载地址">
           </div>
         </div>
         <button class="btn btn-primary" id="preprocBtn" onclick="runPreprocess()">开始预处理</button>
@@ -777,11 +859,20 @@ tr:hover td { background: var(--primary-light); }
       <div class="card-body">
         <div class="form-group">
           <label>PSG 记录文件 (EDF)</label>
-          <div class="file-upload" id="embedFileUpload">
-            <input type="file" id="embedFile" accept=".edf">
-            <div class="file-upload-icon">&#128203;</div>
-            <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
-            <div class="file-name" id="embedFileName"></div>
+          <div class="input-mode-toggle">
+            <button class="input-mode-btn active" onclick="switchInputMode('embed','file',this)">上传文件</button>
+            <button class="input-mode-btn" onclick="switchInputMode('embed','url',this)">文件 URL</button>
+          </div>
+          <div id="embedFileMode">
+            <div class="file-upload" id="embedFileUpload">
+              <input type="file" id="embedFile" accept=".edf">
+              <div class="file-upload-icon">&#128203;</div>
+              <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
+              <div class="file-name" id="embedFileName"></div>
+            </div>
+          </div>
+          <div id="embedUrlMode" class="url-input-wrapper">
+            <input type="text" id="embedFileUrl" placeholder="输入 EDF 文件的下载地址">
           </div>
         </div>
         <button class="btn btn-primary" id="embedBtn" onclick="runEmbed()">生成嵌入</button>
@@ -849,6 +940,7 @@ tr:hover td { background: var(--primary-light); }
 <script>
 const API_BASE = '';
 let allLabels = [];
+const inputModes = { predict: 'file', preproc: 'file', embed: 'file' };
 
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -860,6 +952,41 @@ document.querySelectorAll('.tab').forEach(tab => {
     if (tab.dataset.panel === 'labels' && allLabels.length === 0) loadLabels();
   });
 });
+
+function switchInputMode(prefix, mode, btn) {
+  inputModes[prefix] = mode;
+  btn.parentElement.querySelectorAll('.input-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const fileDiv = document.getElementById(prefix + 'FileMode');
+  const urlDiv = document.getElementById(prefix + 'UrlMode');
+  if (mode === 'file') {
+    fileDiv.style.display = '';
+    urlDiv.classList.remove('active');
+  } else {
+    fileDiv.style.display = 'none';
+    urlDiv.classList.add('active');
+  }
+}
+
+function getFileFormData(prefix) {
+  const fd = new FormData();
+  if (inputModes[prefix] === 'file') {
+    const fileInput = document.getElementById(prefix === 'preproc' ? 'preprocFile' : prefix + 'File');
+    if (!fileInput.files[0]) return null;
+    fd.append('file', fileInput.files[0]);
+  } else {
+    const urlInput = document.getElementById(prefix === 'preproc' ? 'preprocFileUrl' : prefix + 'FileUrl');
+    const url = urlInput.value.trim();
+    if (!url) return null;
+    fd.append('file_url', url);
+  }
+  return fd;
+}
+
+function getFileInputError(prefix) {
+  if (inputModes[prefix] === 'file') return '请选择一个 EDF 文件';
+  return '请输入 EDF 文件的下载地址';
+}
 
 function setupFileUpload(uploadId, inputId, nameId) {
   const area = document.getElementById(uploadId);
@@ -987,8 +1114,8 @@ function syntaxHighlight(json) {
 const STAGE_NAME_MAP = { Wake: '清醒', N1: 'N1 浅睡', N2: 'N2 浅睡', N3: 'N3 深睡', REM: 'REM 快速眼动' };
 
 async function runPredict() {
-  const file = document.getElementById('predictFile').files[0];
-  if (!file) { alert('请选择一个 EDF 文件'); return; }
+  const fd = getFileFormData('predict');
+  if (!fd) { alert(getFileInputError('predict')); return; }
 
   const doStaging = document.getElementById('taskStaging').checked;
   const doDisease = document.getElementById('taskDisease').checked;
@@ -1002,17 +1129,18 @@ async function runPredict() {
   if (doStaging) tasks.push('sleep_staging');
   if (doDisease) tasks.push('disease_prediction');
 
+  fd.append('tasks', tasks.join(','));
+  if (age) fd.append('age', age);
+  fd.append('gender', gender);
+
+  const minHazard = document.getElementById('predictMinHazard').value;
+  if (minHazard) fd.append('min_hazard_score', minHazard);
+
   setLoading('predictBtn', true);
 
   const progress = document.getElementById('predictProgress');
   progress.classList.add('active');
   animateProgress();
-
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('tasks', tasks.join(','));
-  if (age) fd.append('age', age);
-  fd.append('gender', gender);
 
   try {
     const r = await fetch(API_BASE + '/api/v1/predict', { method: 'POST', body: fd });
@@ -1101,6 +1229,10 @@ function showPredictResults(data, doStaging, doDisease) {
 
   if (data.disease_prediction) {
     const dp = data.disease_prediction;
+    const count = dp.top_risks.length;
+    const total = dp.all_hazards_count;
+    document.getElementById('diseaseCount').textContent =
+      count < total ? `显示 ${count} 种高风险疾病（共 ${total} 种）` : `共 ${total} 种疾病`;
     document.getElementById('diseaseTableBody').innerHTML = dp.top_risks.map(r => {
       const badge = r.rank <= 1 ? 'gold' : r.rank <= 2 ? 'silver' : r.rank <= 3 ? 'bronze' : '';
       return `<tr>
@@ -1131,12 +1263,10 @@ function switchSubTab(panelId, btn) {
 }
 
 async function runPreprocess() {
-  const file = document.getElementById('preprocFile').files[0];
-  if (!file) { alert('请选择一个 EDF 文件'); return; }
+  const fd = getFileFormData('preproc');
+  if (!fd) { alert(getFileInputError('preproc')); return; }
 
   setLoading('preprocBtn', true);
-  const fd = new FormData();
-  fd.append('file', file);
 
   try {
     const r = await fetch(API_BASE + '/api/v1/preprocess', { method: 'POST', body: fd });
@@ -1173,12 +1303,10 @@ async function runPreprocess() {
 }
 
 async function runEmbed() {
-  const file = document.getElementById('embedFile').files[0];
-  if (!file) { alert('请选择一个 EDF 文件'); return; }
+  const fd = getFileFormData('embed');
+  if (!fd) { alert(getFileInputError('embed')); return; }
 
   setLoading('embedBtn', true);
-  const fd = new FormData();
-  fd.append('file', file);
 
   try {
     const r = await fetch(API_BASE + '/api/v1/embed', { method: 'POST', body: fd });

@@ -6,22 +6,58 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from loguru import logger
 
 from api import schemas, inference
-from api.utils import temp_directory, save_upload_file
+from api.utils import temp_directory, save_upload_file, download_file_from_url
 
 router = APIRouter(prefix="/api/v1", tags=["inference"])
 
 _gpu_lock = asyncio.Lock()
 
 
-@router.post("/preprocess", response_model=schemas.PreprocessResponse)
-async def preprocess(file: UploadFile = File(...)):
-    if not file.filename or not file.filename.lower().endswith(".edf"):
-        raise HTTPException(status_code=400, detail="Only .edf files are accepted")
-
-    with temp_directory() as tmp_dir:
+async def _resolve_edf_file(
+    tmp_dir: str,
+    file: Optional[UploadFile],
+    file_url: Optional[str],
+) -> str:
+    """Resolve EDF file from upload or URL, return local path."""
+    if file and file.filename:
+        if not file.filename.lower().endswith(".edf"):
+            raise HTTPException(status_code=400, detail="Only .edf files are accepted")
         edf_path = os.path.join(tmp_dir, file.filename)
-        hdf5_path = os.path.join(tmp_dir, file.filename.rsplit(".", 1)[0] + ".hdf5")
         await save_upload_file(file, edf_path)
+        return edf_path
+
+    if file_url:
+        loop = asyncio.get_event_loop()
+        try:
+            edf_path = await loop.run_in_executor(
+                None, download_file_from_url, file_url, tmp_dir
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to download file from URL: {e}",
+            )
+        if not edf_path.lower().endswith(".edf"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Downloaded file is not .edf format: {os.path.basename(edf_path)}",
+            )
+        return edf_path
+
+    raise HTTPException(
+        status_code=400,
+        detail="Either 'file' (upload) or 'file_url' (URL) must be provided",
+    )
+
+
+@router.post("/preprocess", response_model=schemas.PreprocessResponse)
+async def preprocess(
+    file: Optional[UploadFile] = File(None),
+    file_url: Optional[str] = Form(None),
+):
+    with temp_directory() as tmp_dir:
+        edf_path = await _resolve_edf_file(tmp_dir, file, file_url)
+        hdf5_path = os.path.join(tmp_dir, os.path.basename(edf_path).rsplit(".", 1)[0] + ".hdf5")
 
         loop = asyncio.get_event_loop()
         info = await loop.run_in_executor(None, inference.preprocess_edf, edf_path, hdf5_path)
@@ -35,16 +71,16 @@ async def preprocess(file: UploadFile = File(...)):
 
 
 @router.post("/embed", response_model=schemas.EmbedResponse)
-async def embed(file: UploadFile = File(...)):
-    if not file.filename or not file.filename.lower().endswith(".edf"):
-        raise HTTPException(status_code=400, detail="Only .edf files are accepted")
-
+async def embed(
+    file: Optional[UploadFile] = File(None),
+    file_url: Optional[str] = Form(None),
+):
     try:
         with temp_directory() as tmp_dir:
-            edf_path = os.path.join(tmp_dir, file.filename)
-            hdf5_path = os.path.join(tmp_dir, file.filename.rsplit(".", 1)[0] + ".hdf5")
+            edf_path = await _resolve_edf_file(tmp_dir, file, file_url)
+            basename = os.path.basename(edf_path).rsplit(".", 1)[0]
+            hdf5_path = os.path.join(tmp_dir, basename + ".hdf5")
             emb_dir = os.path.join(tmp_dir, "emb")
-            await save_upload_file(file, edf_path)
 
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, inference.preprocess_edf, edf_path, hdf5_path)
@@ -72,14 +108,13 @@ async def embed(file: UploadFile = File(...)):
 
 @router.post("/predict", response_model=schemas.PredictResponse)
 async def predict(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    file_url: Optional[str] = Form(None),
     age: Optional[float] = Form(None),
     gender: Optional[int] = Form(None),
     tasks: str = Form("sleep_staging,disease_prediction"),
+    min_hazard_score: Optional[float] = Form(None),
 ):
-    if not file.filename or not file.filename.lower().endswith(".edf"):
-        raise HTTPException(status_code=400, detail="Only .edf files are accepted")
-
     task_list = [t.strip() for t in tasks.split(",")]
     do_staging = "sleep_staging" in task_list
     do_disease = "disease_prediction" in task_list
@@ -92,10 +127,10 @@ async def predict(
 
     try:
         with temp_directory() as tmp_dir:
-            edf_path = os.path.join(tmp_dir, file.filename)
-            hdf5_path = os.path.join(tmp_dir, file.filename.rsplit(".", 1)[0] + ".hdf5")
+            edf_path = await _resolve_edf_file(tmp_dir, file, file_url)
+            basename = os.path.basename(edf_path).rsplit(".", 1)[0]
+            hdf5_path = os.path.join(tmp_dir, basename + ".hdf5")
             emb_dir = os.path.join(tmp_dir, "emb")
-            await save_upload_file(file, edf_path)
 
             loop = asyncio.get_event_loop()
 
@@ -126,6 +161,12 @@ async def predict(
                     disease_result = await loop.run_in_executor(
                         None, inference.run_disease_prediction, emb_file, age, gender
                     )
+
+        if disease_result and min_hazard_score is not None:
+            filtered = [r for r in disease_result.top_risks if r.hazard_score >= min_hazard_score]
+            for i, item in enumerate(filtered, start=1):
+                item.rank = i
+            disease_result.top_risks = filtered
 
         return schemas.PredictResponse(
             status="success",

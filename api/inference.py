@@ -246,13 +246,12 @@ def run_disease_prediction(
     label_df = pd.read_csv(LABEL_MAPPING_PATH)
 
     sorted_indices = np.argsort(-hazards)
-    top_n = 20
-    top_risks = []
-    for rank, idx in enumerate(sorted_indices[:top_n], start=1):
+    all_risks = []
+    for rank, idx in enumerate(sorted_indices, start=1):
         row = label_df[label_df["label_idx"] == int(idx)]
         phecode = str(row["phecode"].values[0]) if len(row) > 0 else "unknown"
         phenotype = str(row["phenotype"].values[0]) if len(row) > 0 else "unknown"
-        top_risks.append(schemas.DiseaseRiskItem(
+        all_risks.append(schemas.DiseaseRiskItem(
             rank=rank,
             label_idx=int(idx),
             phecode=phecode,
@@ -261,6 +260,6 @@ def run_disease_prediction(
         ))
 
     return schemas.DiseasePredictionResult(
-        top_risks=top_risks,
+        top_risks=all_risks,
         all_hazards_count=len(hazards),
     )
