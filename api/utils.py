@@ -25,7 +25,7 @@ async def save_upload_file(upload_file, dest_path: str):
         f.write(content)
 
 
-def download_file_from_url(url: str, dest_dir: str, timeout: int = 300) -> str:
+def download_file_from_url(url: str, dest_dir: str, timeout: int = 600) -> str:
     """Download a file from URL to dest_dir. Returns the local file path."""
     logger.info(f"Downloading file from URL: {url}")
 
