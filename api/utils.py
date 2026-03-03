@@ -18,11 +18,17 @@ def temp_directory(prefix: str = "sleepfm_"):
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-async def save_upload_file(upload_file, dest_path: str):
-    """Save an UploadFile to a given path."""
+async def save_upload_file(upload_file, dest_path: str, chunk_size: int = 1024 * 1024):
+    """Save an UploadFile to disk in chunks to avoid loading entire file into memory."""
+    size = 0
     with open(dest_path, "wb") as f:
-        content = await upload_file.read()
-        f.write(content)
+        while True:
+            chunk = await upload_file.read(chunk_size)
+            if not chunk:
+                break
+            f.write(chunk)
+            size += len(chunk)
+    logger.info(f"Saved upload file: {size / 1024 / 1024:.1f} MB -> {dest_path}")
 
 
 def download_file_from_url(url: str, dest_dir: str, timeout: int = 600) -> str:

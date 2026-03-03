@@ -12,7 +12,7 @@ CHANNEL_GROUPS_PATH = os.path.join(SLEEPFM_ROOT, "configs", "channel_groups.json
 LABEL_MAPPING_PATH = os.path.join(SLEEPFM_ROOT, "configs", "label_mapping.csv")
 
 RESAMPLE_RATE = 128
-MAX_UPLOAD_SIZE_MB = 500
+MAX_UPLOAD_SIZE_MB = 0  # 0 means no limit
 
 API_HOST = "0.0.0.0"
 API_PORT = 6006

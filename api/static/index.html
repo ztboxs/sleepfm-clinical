@@ -87,6 +87,59 @@ body {
   margin-left: 8px;
 }
 
+/* ========== System Stats Bar ========== */
+.sys-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sys-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sys-stat-label {
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.sys-stat-bar {
+  width: 60px;
+  height: 6px;
+  background: var(--border-light);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sys-stat-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease, background 0.5s ease;
+}
+
+.sys-stat-bar-fill.low { background: var(--success); }
+.sys-stat-bar-fill.mid { background: var(--warning); }
+.sys-stat-bar-fill.high { background: var(--error); }
+
+.sys-stat-val {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+}
+
+.sys-stat-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-light);
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -158,21 +211,11 @@ body {
   justify-content: space-between;
 }
 
-.card-header h2 {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.card-header .desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
+.card-header h2 { font-size: 16px; font-weight: 600; }
+.card-header .desc { font-size: 13px; color: var(--text-secondary); }
 .card-body { padding: 20px; }
 
-.form-group {
-  margin-bottom: 16px;
-}
+.form-group { margin-bottom: 16px; }
 
 .form-group label {
   display: block;
@@ -219,15 +262,8 @@ input:focus, select:focus {
   position: relative;
 }
 
-.file-upload:hover, .file-upload.dragover {
-  border-color: var(--primary);
-  background: var(--primary-light);
-}
-
-.file-upload.has-file {
-  border-color: var(--success);
-  background: var(--success-bg);
-}
+.file-upload:hover, .file-upload.dragover { border-color: var(--primary); background: var(--primary-light); }
+.file-upload.has-file { border-color: var(--success); background: var(--success-bg); }
 
 .file-upload input {
   position: absolute;
@@ -236,19 +272,9 @@ input:focus, select:focus {
   cursor: pointer;
 }
 
-.file-upload-icon {
-  font-size: 40px;
-  margin-bottom: 8px;
-}
-
-.file-upload-text {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.file-upload-text strong {
-  color: var(--primary);
-}
+.file-upload-icon { font-size: 40px; margin-bottom: 8px; }
+.file-upload-text { font-size: 14px; color: var(--text-secondary); }
+.file-upload-text strong { color: var(--primary); }
 
 .file-name {
   font-size: 14px;
@@ -273,86 +299,142 @@ input:focus, select:focus {
   text-decoration: none;
 }
 
-.btn-primary {
-  background: var(--primary);
-  color: white;
-  min-width: 140px;
-}
-
+.btn-primary { background: var(--primary); color: white; min-width: 140px; }
 .btn-primary:hover { background: var(--primary-hover); box-shadow: var(--shadow-md); }
 .btn-primary:disabled { background: var(--border); color: var(--text-tertiary); cursor: not-allowed; }
 
-.btn-outline {
-  background: transparent;
-  color: var(--primary);
-  border: 1px solid var(--primary);
-}
-
+.btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
 .btn-outline:hover { background: var(--primary-light); }
-
 .btn-sm { padding: 6px 12px; font-size: 13px; }
 
-.checkbox-group {
-  display: flex;
-  gap: 16px;
-}
+.checkbox-group { display: flex; gap: 16px; }
 
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
+.checkbox-item { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.checkbox-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }
+.checkbox-item span { font-size: 14px; color: var(--text-primary); }
 
-.checkbox-item input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primary);
-}
-
-.checkbox-item span {
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
-.progress-bar {
+/* ========== Live Progress Tracker ========== */
+.live-progress {
   display: none;
   margin-top: 16px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--card);
 }
 
-.progress-bar.active { display: block; }
+.live-progress.active { display: block; }
 
-.progress-track {
-  height: 4px;
+.lp-header {
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lp-file-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.lp-timer {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-timer-label {
+  font-size: 11px;
+  opacity: 0.8;
+  text-align: right;
+}
+
+.lp-bar-wrap {
+  padding: 0 20px;
+  padding-top: 14px;
+}
+
+.lp-bar-track {
+  height: 8px;
   background: var(--border-light);
-  border-radius: 2px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
-.progress-fill {
+.lp-bar-fill {
   height: 100%;
-  background: var(--primary);
-  border-radius: 2px;
-  width: 0;
-  transition: width 0.3s;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.8s ease;
 }
 
-.progress-steps {
+.lp-bar-text {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  padding: 0 2px;
 }
 
-.progress-step {
-  font-size: 12px;
-  color: var(--text-tertiary);
+.lp-stages {
+  padding: 16px 20px;
+}
+
+.lp-stage {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 14px;
 }
 
-.progress-step.active { color: var(--primary); font-weight: 600; }
-.progress-step.done { color: var(--success); }
+.lp-stage:last-child { border-bottom: none; }
+
+.lp-stage-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.lp-stage-icon.pending { background: var(--border-light); color: var(--text-tertiary); }
+.lp-stage-icon.active { background: var(--primary-light); color: var(--primary); animation: pulse 1.5s ease infinite; }
+.lp-stage-icon.done { background: var(--success-bg); color: var(--success); }
+.lp-stage-icon.error { background: var(--error-bg); color: var(--error); }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(24, 119, 242, 0); }
+}
+
+.lp-stage-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.lp-stage-name.active { color: var(--primary); font-weight: 600; }
+.lp-stage-name.done { color: var(--success); }
+.lp-stage-name.error { color: var(--error); }
+
+.lp-stage-time {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  min-width: 50px;
+  text-align: right;
+}
 
 .result-section { display: none; }
 .result-section.active { display: block; }
@@ -385,23 +467,9 @@ input:focus, select:focus {
   text-align: center;
 }
 
-.stat-card .value {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.stat-card .label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-  letter-spacing: 0.5px;
-}
-
-.stat-card .pct {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
+.stat-card .value { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+.stat-card .label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; letter-spacing: 0.5px; }
+.stat-card .pct { font-size: 12px; color: var(--text-tertiary); }
 
 .table-container {
   overflow-x: auto;
@@ -409,12 +477,7 @@ input:focus, select:focus {
   border-radius: var(--radius);
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
 thead { background: var(--bg); }
 
 th, td {
@@ -423,13 +486,7 @@ th, td {
   border-bottom: 1px solid var(--border-light);
 }
 
-th {
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-}
-
+th { font-weight: 600; font-size: 12px; letter-spacing: 0.5px; color: var(--text-secondary); }
 tr:last-child td { border-bottom: none; }
 tr:hover td { background: var(--primary-light); }
 
@@ -493,12 +550,7 @@ tr:hover td { background: var(--primary-light); }
   padding: 16px;
 }
 
-.health-card h3 {
-  font-size: 13px;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-}
+.health-card h3 { font-size: 13px; letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 12px; }
 
 .health-item {
   display: flex;
@@ -525,11 +577,7 @@ tr:hover td { background: var(--primary-light); }
   word-break: break-all;
 }
 
-.channel-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
+.channel-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .channel-tag {
   padding: 3px 10px;
@@ -559,6 +607,7 @@ tr:hover td { background: var(--primary-light); }
   .form-row { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(3, 1fr); }
   .tabs { flex-wrap: wrap; }
+  .sys-stats { display: none; }
 }
 
 .preprocess-info {
@@ -567,18 +616,8 @@ tr:hover td { background: var(--primary-light); }
   gap: 16px;
 }
 
-.info-block h4 {
-  font-size: 13px;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-}
-
-.help-text {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
-}
+.info-block h4 { font-size: 13px; letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 8px; }
+.help-text { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
 
 .input-mode-toggle {
   display: inline-flex;
@@ -609,13 +648,8 @@ tr:hover td { background: var(--primary-light); }
   font-weight: 600;
 }
 
-.url-input-wrapper {
-  display: none;
-}
-
-.url-input-wrapper.active {
-  display: block;
-}
+.url-input-wrapper { display: none; }
+.url-input-wrapper.active { display: block; }
 
 .url-input-wrapper input {
   width: 100%;
@@ -635,6 +669,22 @@ tr:hover td { background: var(--primary-light); }
   border-style: solid;
   box-shadow: 0 0 0 2px var(--primary-light);
 }
+
+/* Health bar in health panel */
+.health-bar-wrap {
+  margin-top: 8px;
+}
+.health-bar-track {
+  height: 8px;
+  background: var(--border-light);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.health-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s;
+}
 </style>
 </head>
 <body>
@@ -644,9 +694,23 @@ tr:hover td { background: var(--primary-light); }
     <div class="logo">S</div>
     <h1>SleepFM<span>临床模型 API 控制台</span></h1>
   </div>
-  <div id="serverStatus" class="status-badge loading">
-    <div class="status-dot"></div>
-    <span>连接中...</span>
+  <div class="sys-stats" id="sysStats">
+    <div class="sys-stat-item">
+      <span class="sys-stat-label">GPU</span>
+      <div class="sys-stat-bar"><div class="sys-stat-bar-fill low" id="gpuBarFill" style="width:0%"></div></div>
+      <span class="sys-stat-val" id="gpuVal">--</span>
+    </div>
+    <div class="sys-stat-divider"></div>
+    <div class="sys-stat-item">
+      <span class="sys-stat-label">RAM</span>
+      <div class="sys-stat-bar"><div class="sys-stat-bar-fill low" id="ramBarFill" style="width:0%"></div></div>
+      <span class="sys-stat-val" id="ramVal">--</span>
+    </div>
+    <div class="sys-stat-divider"></div>
+    <div id="serverStatus" class="status-badge loading">
+      <div class="status-dot"></div>
+      <span>连接中...</span>
+    </div>
   </div>
 </header>
 
@@ -722,8 +786,8 @@ tr:hover td { background: var(--primary-light); }
           </div>
           <div class="form-group">
             <label>最低风险评分阈值</label>
-            <input type="number" id="predictMinHazard" step="0.1" placeholder="留空返回全部，建议 7">
-            <div class="help-text">仅返回 hazard_score >= 该值的疾病，不填则返回全部 1065 种</div>
+            <input type="number" id="predictMinHazard" step="0.001" placeholder="留空返回全部（hazard_score 通常很小）">
+            <div class="help-text">仅返回 hazard_score >= 该值的疾病，不填则返回全部 1065 种。注意：Cox 模型的 hazard_score 通常为较小的浮点数</div>
           </div>
         </div>
 
@@ -731,14 +795,27 @@ tr:hover td { background: var(--primary-light); }
           开始推理
         </button>
 
-        <div class="progress-bar" id="predictProgress">
-          <div class="progress-track"><div class="progress-fill" id="predictProgressFill"></div></div>
-          <div class="progress-steps">
-            <span class="progress-step" id="step0">数据预处理</span>
-            <span class="progress-step" id="step1">生成嵌入</span>
-            <span class="progress-step" id="step2">睡眠分期</span>
-            <span class="progress-step" id="step3">疾病预测</span>
+        <!-- Live Progress Tracker -->
+        <div class="live-progress" id="liveProgress">
+          <div class="lp-header">
+            <div class="lp-file-info">
+              <span>&#128196;</span>
+              <span id="lpFileName">--</span>
+              <span style="opacity:0.7" id="lpFileSize"></span>
+            </div>
+            <div style="text-align:right">
+              <div class="lp-timer" id="lpTimer">0:00</div>
+              <div class="lp-timer-label">总耗时</div>
+            </div>
           </div>
+          <div class="lp-bar-wrap">
+            <div class="lp-bar-track"><div class="lp-bar-fill" id="lpBarFill"></div></div>
+            <div class="lp-bar-text">
+              <span id="lpStageLabel">等待中…</span>
+              <span id="lpPct">0%</span>
+            </div>
+          </div>
+          <div class="lp-stages" id="lpStages"></div>
         </div>
       </div>
     </div>
@@ -750,9 +827,7 @@ tr:hover td { background: var(--primary-light); }
 
       <div id="resultStaging" class="panel">
         <div class="card">
-          <div class="card-header">
-            <h2>睡眠阶段分布</h2>
-          </div>
+          <div class="card-header"><h2>睡眠阶段分布</h2></div>
           <div class="card-body">
             <div class="stats-grid" id="stagingStats"></div>
           </div>
@@ -897,7 +972,7 @@ tr:hover td { background: var(--primary-light); }
       <div class="card-header">
         <div>
           <h2>系统状态</h2>
-          <div class="desc">服务运行状态、GPU 信息与模型加载情况</div>
+          <div class="desc">服务运行状态、GPU / 内存信息与模型加载情况</div>
         </div>
         <button class="btn btn-sm btn-outline" onclick="loadHealth()">刷新</button>
       </div>
@@ -941,7 +1016,10 @@ tr:hover td { background: var(--primary-light); }
 const API_BASE = '';
 let allLabels = [];
 const inputModes = { predict: 'file', preproc: 'file', embed: 'file' };
+let pollTimer = null;
+let sysStatsTimer = null;
 
+/* ========== Tab Switching ========== */
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -953,6 +1031,7 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
+/* ========== Input Mode Toggle ========== */
 function switchInputMode(prefix, mode, btn) {
   inputModes[prefix] = mode;
   btn.parentElement.querySelectorAll('.input-mode-btn').forEach(b => b.classList.remove('active'));
@@ -988,14 +1067,13 @@ function getFileInputError(prefix) {
   return '请输入 EDF 文件的下载地址';
 }
 
+/* ========== File Upload Areas ========== */
 function setupFileUpload(uploadId, inputId, nameId) {
   const area = document.getElementById(uploadId);
   const input = document.getElementById(inputId);
   const nameEl = document.getElementById(nameId);
-
   ['dragenter', 'dragover'].forEach(e => area.addEventListener(e, () => area.classList.add('dragover')));
   ['dragleave', 'drop'].forEach(e => area.addEventListener(e, () => area.classList.remove('dragover')));
-
   input.addEventListener('change', () => {
     if (input.files.length) {
       nameEl.textContent = input.files[0].name + ' (' + (input.files[0].size / 1024 / 1024).toFixed(1) + ' MB)';
@@ -1008,80 +1086,133 @@ setupFileUpload('predictFileUpload', 'predictFile', 'predictFileName');
 setupFileUpload('preprocFileUpload', 'preprocFile', 'preprocFileName');
 setupFileUpload('embedFileUpload', 'embedFile', 'embedFileName');
 
-async function checkServer() {
-  const badge = document.getElementById('serverStatus');
+/* ========== System Stats (Header Bar) ========== */
+async function updateSysStats() {
   try {
     const r = await fetch(API_BASE + '/api/v1/health');
-    if (r.ok) {
-      badge.className = 'status-badge online';
-      badge.innerHTML = '<div class="status-dot"></div><span>已连接</span>';
-    } else throw new Error();
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+
+    const badge = document.getElementById('serverStatus');
+    badge.className = 'status-badge online';
+    badge.innerHTML = '<div class="status-dot"></div><span>已连接</span>';
+
+    const gpu = d.gpu;
+    const gpuTotal = gpu.memory_total_mb || 1;
+    const gpuUsed = gpu.memory_reserved_mb || gpu.memory_allocated_mb || 0;
+    const gpuPct = Math.round(gpuUsed / gpuTotal * 100);
+    document.getElementById('gpuVal').textContent = `${gpuUsed}/${gpuTotal} MB`;
+    const gpuFill = document.getElementById('gpuBarFill');
+    gpuFill.style.width = gpuPct + '%';
+    gpuFill.className = 'sys-stat-bar-fill ' + (gpuPct < 50 ? 'low' : gpuPct < 80 ? 'mid' : 'high');
+
+    const ram = d.ram;
+    if (ram) {
+      const ramTotal = ram.total_mb || 1;
+      const ramUsed = ram.used_mb || 0;
+      const ramPct = Math.round(ramUsed / ramTotal * 100);
+      document.getElementById('ramVal').textContent = `${(ramUsed/1024).toFixed(1)}/${(ramTotal/1024).toFixed(1)} GB`;
+      const ramFill = document.getElementById('ramBarFill');
+      ramFill.style.width = ramPct + '%';
+      ramFill.className = 'sys-stat-bar-fill ' + (ramPct < 50 ? 'low' : ramPct < 80 ? 'mid' : 'high');
+    }
   } catch {
+    const badge = document.getElementById('serverStatus');
     badge.className = 'status-badge offline';
     badge.innerHTML = '<div class="status-dot"></div><span>已断开</span>';
   }
 }
 
+/* ========== Live Progress ========== */
+const STAGE_DEFS = [
+  { key: 'upload_done',         label: '文件接收完成' },
+  { key: 'downloading',         label: '从 URL 下载文件' },
+  { key: 'uploading',           label: '接收文件上传' },
+  { key: 'preprocessing',       label: '数据预处理 — 读取 EDF / 重采样 / 滤波' },
+  { key: 'embedding',           label: '生成嵌入向量 (GPU)' },
+  { key: 'sleep_staging',       label: '睡眠分期推理 (GPU)' },
+  { key: 'disease_prediction',  label: '疾病风险预测 (GPU)' },
+  { key: 'done',                label: '处理完成' },
+];
+
+function fmtSec(s) {
+  if (!s || s < 0) return '--';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return m + ':' + sec.toString().padStart(2, '0');
+}
+
+function renderLiveProgress(ts) {
+  const el = document.getElementById('liveProgress');
+  if (!el) return;
+
+  document.getElementById('lpFileName').textContent = ts.filename || '--';
+  document.getElementById('lpFileSize').textContent = ts.file_size_mb ? `(${ts.file_size_mb} MB)` : '';
+  document.getElementById('lpTimer').textContent = fmtSec(ts.elapsed_seconds);
+  document.getElementById('lpBarFill').style.width = ts.progress_pct + '%';
+  document.getElementById('lpPct').textContent = ts.progress_pct + '%';
+  document.getElementById('lpStageLabel').textContent = ts.stage_label || '等待中…';
+
+  const stagesDone = new Set(ts.stages_done || []);
+  const currentStage = ts.stage;
+
+  const visibleStages = STAGE_DEFS.filter(s => {
+    if (s.key === 'downloading' && !stagesDone.has('downloading') && currentStage !== 'downloading') return false;
+    if (s.key === 'uploading' && !stagesDone.has('uploading') && currentStage !== 'uploading') return false;
+    if (s.key === 'upload_done' && !stagesDone.has('upload_done') && currentStage !== 'upload_done') return false;
+    return true;
+  });
+
+  const stagesHtml = visibleStages.map(s => {
+    let cls = 'pending', icon = '&#9675;';
+    if (stagesDone.has(s.key)) {
+      cls = 'done'; icon = '&#10003;';
+    } else if (currentStage === s.key) {
+      cls = ts.error ? 'error' : 'active';
+      icon = ts.error ? '&#10007;' : '&#9679;';
+    }
+    const timeText = (currentStage === s.key) ? fmtSec(ts.stage_elapsed_seconds) : (stagesDone.has(s.key) ? '' : '');
+    return `<div class="lp-stage">
+      <div class="lp-stage-icon ${cls}">${icon}</div>
+      <span class="lp-stage-name ${cls}">${s.label}</span>
+      <span class="lp-stage-time">${timeText}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('lpStages').innerHTML = stagesHtml;
+}
+
+async function pollTaskStatus() {
+  try {
+    const r = await fetch(API_BASE + '/api/v1/task_status');
+    if (!r.ok) return;
+    const ts = await r.json();
+    renderLiveProgress(ts);
+  } catch { /* ignore */ }
+}
+
+function startPolling() {
+  const el = document.getElementById('liveProgress');
+  el.classList.add('active');
+  document.getElementById('lpStages').innerHTML = '<div class="lp-stage"><div class="lp-stage-icon active">&#9679;</div><span class="lp-stage-name active">正在上传文件到服务器…</span><span class="lp-stage-time"></span></div>';
+  document.getElementById('lpBarFill').style.width = '1%';
+  document.getElementById('lpPct').textContent = '1%';
+  document.getElementById('lpStageLabel').textContent = '正在上传文件…';
+  document.getElementById('lpTimer').textContent = '0:00';
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollTaskStatus, 2000);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+/* ========== Utilities ========== */
 const MODEL_NAME_MAP = {
   'base_model': '基础嵌入模型',
   'sleep_staging_model': '睡眠分期模型',
   'disease_prediction_model': '疾病预测模型',
 };
-
-async function loadHealth() {
-  const grid = document.getElementById('healthGrid');
-  try {
-    const r = await fetch(API_BASE + '/api/v1/health');
-    const d = await r.json();
-    grid.innerHTML = `
-      <div class="health-card">
-        <h3>服务状态</h3>
-        <div class="health-item"><span class="key">状态</span><span class="val" style="color:var(--success)">${d.status === 'healthy' ? '运行正常' : d.status}</span></div>
-      </div>
-      <div class="health-card">
-        <h3>GPU 信息</h3>
-        <div class="health-item"><span class="key">设备</span><span class="val">${d.gpu.name}</span></div>
-        <div class="health-item"><span class="key">总显存</span><span class="val">${d.gpu.memory_total_mb} MB</span></div>
-        <div class="health-item"><span class="key">已使用</span><span class="val">${d.gpu.memory_used_mb} MB</span></div>
-      </div>
-      <div class="health-card">
-        <h3>模型加载</h3>
-        ${Object.entries(d.models_loaded).map(([k,v]) => `
-          <div class="health-item">
-            <span class="key">${MODEL_NAME_MAP[k] || k}</span>
-            <span class="val" style="color:${v ? 'var(--success)' : 'var(--error)'}">${v ? '已加载' : '未加载'}</span>
-          </div>
-        `).join('')}
-      </div>
-    `;
-  } catch (e) {
-    grid.innerHTML = `<div style="color:var(--error);padding:20px">加载系统状态失败：${e.message}</div>`;
-  }
-}
-
-async function loadLabels() {
-  const tbody = document.getElementById('labelsTableBody');
-  try {
-    const r = await fetch(API_BASE + '/api/v1/label_mapping');
-    const d = await r.json();
-    allLabels = d.mappings;
-    renderLabels(allLabels);
-  } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--error);padding:20px">加载失败：${e.message}</td></tr>`;
-  }
-}
-
-function renderLabels(labels) {
-  const tbody = document.getElementById('labelsTableBody');
-  tbody.innerHTML = labels.map(l => `
-    <tr><td>${l.label_idx}</td><td>${l.phecode}</td><td>${l.phenotype}</td></tr>
-  `).join('');
-}
-
-function filterLabels() {
-  const q = document.getElementById('labelSearch').value.toLowerCase();
-  renderLabels(allLabels.filter(l => l.phenotype.toLowerCase().includes(q) || l.phecode.includes(q)));
-}
 
 function setLoading(btnId, loading) {
   const btn = document.getElementById(btnId);
@@ -1113,6 +1244,95 @@ function syntaxHighlight(json) {
 
 const STAGE_NAME_MAP = { Wake: '清醒', N1: 'N1 浅睡', N2: 'N2 浅睡', N3: 'N3 深睡', REM: 'REM 快速眼动' };
 
+/* ========== Load Health ========== */
+async function loadHealth() {
+  const grid = document.getElementById('healthGrid');
+  try {
+    const r = await fetch(API_BASE + '/api/v1/health');
+    const d = await r.json();
+    const gpu = d.gpu;
+    const ram = d.ram || {};
+    const gpuTotal = gpu.memory_total_mb || 0;
+    const gpuAlloc = gpu.memory_allocated_mb || gpu.memory_used_mb || 0;
+    const gpuReserved = gpu.memory_reserved_mb || 0;
+    const gpuPct = gpuTotal ? Math.round(gpuReserved / gpuTotal * 100) : 0;
+    const ramTotal = ram.total_mb || 0;
+    const ramUsed = ram.used_mb || 0;
+    const ramPct = ramTotal ? Math.round(ramUsed / ramTotal * 100) : 0;
+
+    grid.innerHTML = `
+      <div class="health-card">
+        <h3>服务状态</h3>
+        <div class="health-item"><span class="key">状态</span><span class="val" style="color:var(--success)">${d.status === 'healthy' ? '运行正常' : d.status}</span></div>
+      </div>
+      <div class="health-card">
+        <h3>GPU 显存</h3>
+        <div class="health-item"><span class="key">设备</span><span class="val">${gpu.name}</span></div>
+        <div class="health-item"><span class="key">总显存</span><span class="val">${gpuTotal} MB</span></div>
+        <div class="health-item"><span class="key">已分配</span><span class="val">${gpuAlloc} MB</span></div>
+        <div class="health-item"><span class="key">已预留</span><span class="val">${gpuReserved} MB</span></div>
+        <div class="health-bar-wrap">
+          <div class="health-bar-track">
+            <div class="health-bar-fill" style="width:${gpuPct}%;background:${gpuPct<50?'var(--success)':gpuPct<80?'var(--warning)':'var(--error)'}"></div>
+          </div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:var(--text-tertiary);margin-top:4px">${gpuPct}% 使用中</div>
+      </div>
+      <div class="health-card">
+        <h3>系统内存</h3>
+        <div class="health-item"><span class="key">总内存</span><span class="val">${(ramTotal/1024).toFixed(1)} GB</span></div>
+        <div class="health-item"><span class="key">已使用</span><span class="val">${(ramUsed/1024).toFixed(1)} GB</span></div>
+        <div class="health-item"><span class="key">可用</span><span class="val">${((ram.available_mb||0)/1024).toFixed(1)} GB</span></div>
+        <div class="health-bar-wrap">
+          <div class="health-bar-track">
+            <div class="health-bar-fill" style="width:${ramPct}%;background:${ramPct<50?'var(--success)':ramPct<80?'var(--warning)':'var(--error)'}"></div>
+          </div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:var(--text-tertiary);margin-top:4px">${ramPct}% 使用中</div>
+      </div>
+      <div class="health-card">
+        <h3>模型加载</h3>
+        ${Object.entries(d.models_loaded).map(([k,v]) => `
+          <div class="health-item">
+            <span class="key">${MODEL_NAME_MAP[k] || k}</span>
+            <span class="val" style="color:${v ? 'var(--success)' : 'var(--error)'}">${v ? '已加载' : '未加载'}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch (e) {
+    grid.innerHTML = `<div style="color:var(--error);padding:20px">加载系统状态失败：${e.message}</div>`;
+  }
+}
+
+/* ========== Labels ========== */
+async function loadLabels() {
+  const tbody = document.getElementById('labelsTableBody');
+  try {
+    const r = await fetch(API_BASE + '/api/v1/label_mapping');
+    const d = await r.json();
+    allLabels = d.mappings;
+    renderLabels(allLabels);
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--error);padding:20px">加载失败：${e.message}</td></tr>`;
+  }
+}
+
+function renderLabels(labels) {
+  document.getElementById('labelsTableBody').innerHTML = labels.map(l => `
+    <tr><td>${l.label_idx}</td><td>${l.phecode}</td><td>${l.phenotype}</td></tr>
+  `).join('');
+}
+
+function filterLabels() {
+  const q = document.getElementById('labelSearch').value.toLowerCase();
+  renderLabels(allLabels.filter(l => l.phenotype.toLowerCase().includes(q) || l.phecode.includes(q)));
+}
+
+/* ========== Predict ========== */
+let _predictDoStaging = false;
+let _predictDoDisease = false;
+
 async function runPredict() {
   const fd = getFileFormData('predict');
   if (!fd) { alert(getFileInputError('predict')); return; }
@@ -1124,6 +1344,9 @@ async function runPredict() {
   const age = document.getElementById('predictAge').value;
   const gender = document.getElementById('predictGender').value;
   if (doDisease && !age) { alert('疾病风险预测需要填写年龄'); return; }
+
+  _predictDoStaging = doStaging;
+  _predictDoDisease = doDisease;
 
   const tasks = [];
   if (doStaging) tasks.push('sleep_staging');
@@ -1137,40 +1360,84 @@ async function runPredict() {
   if (minHazard) fd.append('min_hazard_score', minHazard);
 
   setLoading('predictBtn', true);
-
-  const progress = document.getElementById('predictProgress');
-  progress.classList.add('active');
-  animateProgress();
+  document.getElementById('predictResults').classList.remove('active');
+  startPolling();
 
   try {
     const r = await fetch(API_BASE + '/api/v1/predict', { method: 'POST', body: fd });
-    const d = await r.json();
+    const text = await r.text();
 
-    if (!r.ok) throw new Error(d.detail || '请求失败');
+    let d;
+    try { d = JSON.parse(text); } catch {
+      const isHtml = text.trim().startsWith('<');
+      throw new Error(isHtml
+        ? `服务器返回了 HTML 而非 JSON（HTTP ${r.status}）。大文件上传可能被网络代理拦截，建议改用「文件 URL」方式传入。`
+        : `响应解析失败（HTTP ${r.status}）：${text.substring(0, 200)}`);
+    }
 
-    document.getElementById('predictProgressFill').style.width = '100%';
-    showPredictResults(d, doStaging, doDisease);
+    if (!r.ok) throw new Error(d.detail || `请求失败（HTTP ${r.status}）`);
+
+    /* Task accepted — now wait for completion via polling */
+    await waitForResult();
+
   } catch (e) {
+    await pollTaskStatus();
+    stopPolling();
+    setLoading('predictBtn', false);
     const banner = document.getElementById('predictBanner');
     banner.className = 'result-banner error';
     banner.textContent = '错误：' + e.message;
     document.getElementById('predictResults').classList.add('active');
     document.getElementById('resultSubTabs').innerHTML = '';
-  } finally {
-    setLoading('predictBtn', false);
-    setTimeout(() => progress.classList.remove('active'), 1000);
   }
 }
 
-function animateProgress() {
-  const fill = document.getElementById('predictProgressFill');
-  fill.style.width = '0';
-  let w = 0;
-  const iv = setInterval(() => {
-    w += Math.random() * 8;
-    if (w >= 90) { clearInterval(iv); w = 90; }
-    fill.style.width = w + '%';
-  }, 300);
+async function waitForResult() {
+  const check = async () => {
+    try {
+      const r = await fetch(API_BASE + '/api/v1/task_status');
+      if (!r.ok) return;
+      const ts = await r.json();
+      renderLiveProgress(ts);
+
+      if (ts.stage === 'done' || (!ts.active && ts.error)) {
+        stopPolling();
+
+        if (ts.error) {
+          setLoading('predictBtn', false);
+          const banner = document.getElementById('predictBanner');
+          banner.className = 'result-banner error';
+          banner.textContent = '错误：' + ts.error;
+          document.getElementById('predictResults').classList.add('active');
+          document.getElementById('resultSubTabs').innerHTML = '';
+          return;
+        }
+
+        try {
+          const rr = await fetch(API_BASE + '/api/v1/task_result');
+          const data = await rr.json();
+          if (data.status === 'success' || data.sleep_staging || data.disease_prediction) {
+            showPredictResults(data, _predictDoStaging, _predictDoDisease);
+          } else if (data.status === 'error') {
+            throw new Error(data.detail || '推理失败');
+          } else {
+            throw new Error(data.message || '未获取到结果');
+          }
+        } catch (e) {
+          const banner = document.getElementById('predictBanner');
+          banner.className = 'result-banner error';
+          banner.textContent = '获取结果失败：' + e.message;
+          document.getElementById('predictResults').classList.add('active');
+          document.getElementById('resultSubTabs').innerHTML = '';
+        } finally {
+          setLoading('predictBtn', false);
+        }
+        return;
+      }
+    } catch { /* ignore polling errors */ }
+    setTimeout(check, 2000);
+  };
+  setTimeout(check, 2000);
 }
 
 function showPredictResults(data, doStaging, doDisease) {
@@ -1262,6 +1529,7 @@ function switchSubTab(panelId, btn) {
   btn.classList.add('active');
 }
 
+/* ========== Preprocess ========== */
 async function runPreprocess() {
   const fd = getFileFormData('preproc');
   if (!fd) { alert(getFileInputError('preproc')); return; }
@@ -1270,7 +1538,13 @@ async function runPreprocess() {
 
   try {
     const r = await fetch(API_BASE + '/api/v1/preprocess', { method: 'POST', body: fd });
-    const d = await r.json();
+    const text = await r.text();
+    let d;
+    try { d = JSON.parse(text); } catch {
+      throw new Error(text.trim().startsWith('<')
+        ? `服务器返回了 HTML 而非 JSON（HTTP ${r.status}），大文件请改用「文件 URL」方式`
+        : `响应解析失败（HTTP ${r.status}）`);
+    }
     if (!r.ok) throw new Error(d.detail || '请求失败');
 
     document.getElementById('preprocResults').classList.add('active');
@@ -1302,6 +1576,7 @@ async function runPreprocess() {
   }
 }
 
+/* ========== Embed ========== */
 async function runEmbed() {
   const fd = getFileFormData('embed');
   if (!fd) { alert(getFileInputError('embed')); return; }
@@ -1310,7 +1585,13 @@ async function runEmbed() {
 
   try {
     const r = await fetch(API_BASE + '/api/v1/embed', { method: 'POST', body: fd });
-    const d = await r.json();
+    const text = await r.text();
+    let d;
+    try { d = JSON.parse(text); } catch {
+      throw new Error(text.trim().startsWith('<')
+        ? `服务器返回了 HTML 而非 JSON（HTTP ${r.status}），大文件请改用「文件 URL」方式`
+        : `响应解析失败（HTTP ${r.status}）`);
+    }
     if (!r.ok) throw new Error(d.detail || '请求失败');
 
     document.getElementById('embedResults').classList.add('active');
@@ -1341,8 +1622,9 @@ async function runEmbed() {
   }
 }
 
-checkServer();
-setInterval(checkServer, 30000);
+/* ========== Init ========== */
+updateSysStats();
+sysStatsTimer = setInterval(updateSysStats, 5000);
 </script>
 </body>
 </html>

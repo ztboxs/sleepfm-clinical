@@ -54,4 +54,11 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api.main:app", host=API_HOST, port=API_PORT, reload=False)
+    uvicorn.run(
+        "api.main:app",
+        host=API_HOST,
+        port=API_PORT,
+        reload=False,
+        timeout_keep_alive=300,
+        h11_max_incomplete_event_size=0,
+    )
