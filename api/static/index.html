@@ -466,7 +466,13 @@ input:focus, select:focus {
   border-radius: var(--radius);
   padding: 14px;
   text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  border: 2px solid transparent;
 }
+
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.stat-card.active-filter { border-color: var(--primary); background: var(--primary-light); }
 
 .stat-card .value { font-size: 24px; font-weight: 700; color: var(--text-primary); }
 .stat-card .label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; letter-spacing: 0.5px; }
@@ -721,6 +727,8 @@ tr:hover td { background: var(--primary-light); }
     <button class="tab active" data-panel="predict">完整推理</button>
     <button class="tab" data-panel="preprocess">数据预处理</button>
     <button class="tab" data-panel="embed">生成嵌入</button>
+    <button class="tab" data-panel="staging">睡眠分期</button>
+    <button class="tab" data-panel="disease">疾病预测</button>
     <button class="tab" data-panel="health">系统状态</button>
     <button class="tab" data-panel="labels">疾病标签映射</button>
   </div>
@@ -758,9 +766,9 @@ tr:hover td { background: var(--primary-light); }
 
         <div class="form-row">
           <div class="form-group">
-            <label>年龄（归一化 0~1）</label>
-            <input type="number" id="predictAge" step="0.01" min="0" max="1" placeholder="例如 0.45">
-            <div class="help-text">归一化后的年龄值，范围 0 到 1</div>
+            <label>年龄</label>
+            <input type="number" id="predictAge" step="1" min="0" max="150" placeholder="例如 45">
+            <div class="help-text">请输入真实年龄（整数），后台将自动归一化处理（age / 100）</div>
           </div>
           <div class="form-group">
             <label>性别</label>
@@ -824,11 +832,13 @@ tr:hover td { background: var(--primary-light); }
     <div class="result-section" id="predictResults">
       <div class="result-banner success" id="predictBanner"></div>
 
+      <div id="predictExportBar" style="display:none;margin-bottom:16px;gap:8px;flex-wrap:wrap"></div>
+
       <div class="sub-tabs" id="resultSubTabs"></div>
 
       <div id="resultStaging" class="panel">
         <div class="card">
-          <div class="card-header"><h2>睡眠阶段分布</h2></div>
+          <div class="card-header"><h2>睡眠阶段分布</h2><div class="desc">点击卡片可筛选对应阶段</div></div>
           <div class="card-body">
             <div class="stats-grid" id="stagingStats"></div>
           </div>
@@ -836,7 +846,11 @@ tr:hover td { background: var(--primary-light); }
         <div class="card">
           <div class="card-header">
             <h2>逐时段详情</h2>
-            <div class="desc" id="epochCount"></div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="desc" id="epochCount"></div>
+              <div id="stageFilterInfo" style="display:none;font-size:13px;color:var(--primary);font-weight:500"></div>
+              <button id="stageFilterClearBtn" class="btn btn-sm btn-outline" style="display:none" onclick="clearStageFilter()">清除筛选</button>
+            </div>
           </div>
           <div class="card-body">
             <div class="epoch-list">
@@ -911,7 +925,13 @@ tr:hover td { background: var(--primary-light); }
     </div>
     <div class="result-section" id="preprocResults">
       <div class="card">
-        <div class="card-header"><h2>预处理结果</h2></div>
+        <div class="card-header">
+          <h2>预处理结果</h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-outline" id="preprocDownloadBtn" style="display:none" onclick="downloadExportFile(_preprocFileId, 'preprocessed')">下载预处理文件 (HDF5)</button>
+            <button class="btn btn-sm btn-primary" id="preprocUseNextBtn" style="display:none" onclick="usePreprocFileInEmbed()">用于下一步（生成嵌入）</button>
+          </div>
+        </div>
         <div class="card-body">
           <div class="preprocess-info" id="preprocInfo"></div>
           <div style="margin-top:16px">
@@ -934,21 +954,26 @@ tr:hover td { background: var(--primary-light); }
       </div>
       <div class="card-body">
         <div class="form-group">
-          <label>PSG 记录文件 (EDF)</label>
+          <label>输入数据 (EDF / HDF5 / 预处理文件 ID)</label>
           <div class="input-mode-toggle">
             <button class="input-mode-btn active" onclick="switchInputMode('embed','file',this)">上传文件</button>
             <button class="input-mode-btn" onclick="switchInputMode('embed','url',this)">文件 URL</button>
+            <button class="input-mode-btn" onclick="switchInputMode('embed','fileid',this)">已有文件 ID</button>
           </div>
           <div id="embedFileMode">
             <div class="file-upload" id="embedFileUpload">
-              <input type="file" id="embedFile" accept=".edf">
+              <input type="file" id="embedFile" accept=".edf,.hdf5,.h5">
               <div class="file-upload-icon">&#128203;</div>
-              <div class="file-upload-text">拖拽文件到此处，或 <strong>点击浏览</strong> 上传 .edf 文件</div>
+              <div class="file-upload-text">上传 EDF 或预处理后的 HDF5 文件</div>
               <div class="file-name" id="embedFileName"></div>
             </div>
           </div>
           <div id="embedUrlMode" class="url-input-wrapper">
-            <input type="text" id="embedFileUrl" placeholder="输入 EDF 文件的下载地址">
+            <input type="text" id="embedFileUrl" placeholder="输入文件下载地址">
+          </div>
+          <div id="embedFileidMode" class="url-input-wrapper">
+            <input type="text" id="embedPreprocFileId" placeholder="输入预处理文件 ID（如 preproc_xxxxxxxxxxxx）">
+            <div class="help-text">使用之前预处理步骤导出的 preprocessed_file_id，跳过 EDF 读取和预处理</div>
           </div>
         </div>
         <button class="btn btn-primary" id="embedBtn" onclick="runEmbed()">生成嵌入</button>
@@ -956,11 +981,160 @@ tr:hover td { background: var(--primary-light); }
     </div>
     <div class="result-section" id="embedResults">
       <div class="card">
-        <div class="card-header"><h2>嵌入结果</h2></div>
+        <div class="card-header">
+          <h2>嵌入结果</h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-outline" id="embedDownloadBtn" style="display:none" onclick="downloadExportFile(_embedFileId, 'embedding')">下载嵌入文件 (HDF5)</button>
+            <button class="btn btn-sm btn-primary" id="embedUseForStagingBtn" style="display:none" onclick="useEmbedFileInStaging()">用于睡眠分期</button>
+            <button class="btn btn-sm btn-primary" id="embedUseForDiseaseBtn" style="display:none" onclick="useEmbedFileInDisease()">用于疾病预测</button>
+          </div>
+        </div>
         <div class="card-body">
           <div id="embedInfo"></div>
           <div style="margin-top:16px">
             <div class="json-viewer" id="embedRawJson"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 睡眠分期（独立） ==================== -->
+  <div id="panel-staging" class="panel">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>睡眠分期</h2>
+          <div class="desc">上传嵌入文件 (HDF5) 或 EDF 文件，运行睡眠分期推理</div>
+        </div>
+        <span class="btn-sm btn-outline" style="cursor:default">POST /api/v1/sleep_staging</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>输入数据</label>
+          <div class="input-mode-toggle">
+            <button class="input-mode-btn active" onclick="switchInputMode('staging','file',this)">上传文件</button>
+            <button class="input-mode-btn" onclick="switchInputMode('staging','url',this)">文件 URL</button>
+            <button class="input-mode-btn" onclick="switchInputMode('staging','fileid',this)">已有文件 ID</button>
+          </div>
+          <div id="stagingFileMode">
+            <div class="file-upload" id="stagingFileUpload">
+              <input type="file" id="stagingFile" accept=".hdf5,.h5,.edf">
+              <div class="file-upload-icon">&#128203;</div>
+              <div class="file-upload-text">上传嵌入 HDF5 文件（或 EDF 文件自动走完整流程）</div>
+              <div class="file-name" id="stagingFileName"></div>
+            </div>
+          </div>
+          <div id="stagingUrlMode" class="url-input-wrapper">
+            <input type="text" id="stagingFileUrl" placeholder="嵌入文件或 EDF 文件的下载地址">
+          </div>
+          <div id="stagingFileidMode" class="url-input-wrapper">
+            <input type="text" id="stagingEmbedFileId" placeholder="输入嵌入文件 ID（如 embed_xxxxxxxxxxxx）">
+            <div class="help-text">使用之前生成嵌入步骤导出的 embedding_file_id</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="stagingBtn" onclick="runStaging()">开始睡眠分期</button>
+      </div>
+    </div>
+    <div class="result-section" id="stagingResults">
+      <div class="card">
+        <div class="card-header">
+          <h2>睡眠分期结果</h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-outline" id="stagingExportBtn" style="display:none" onclick="downloadExportFile(_stagingResultFileId, 'staging_result')">导出结果 (JSON)</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="stats-grid" id="stagingStandaloneStats"></div>
+          <div style="margin-top:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <div class="desc" id="stagingStandaloneEpochCount"></div>
+              <div id="stagingStandaloneFilterInfo" style="display:none;font-size:13px;color:var(--primary);font-weight:500"></div>
+              <button id="stagingStandaloneFilterClearBtn" class="btn btn-sm btn-outline" style="display:none" onclick="clearStandaloneStageFilter()">清除筛选</button>
+            </div>
+            <div class="epoch-list">
+              <table>
+                <thead><tr><th>序号</th><th>时间</th><th>阶段</th><th>清醒</th><th>N1</th><th>N2</th><th>N3</th><th>REM</th></tr></thead>
+                <tbody id="stagingStandaloneTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 疾病预测（独立） ==================== -->
+  <div id="panel-disease" class="panel">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>疾病风险预测</h2>
+          <div class="desc">上传嵌入文件 (HDF5) 或 EDF 文件 + 人口统计信息，运行疾病风险预测</div>
+        </div>
+        <span class="btn-sm btn-outline" style="cursor:default">POST /api/v1/disease_prediction</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>输入数据</label>
+          <div class="input-mode-toggle">
+            <button class="input-mode-btn active" onclick="switchInputMode('disease','file',this)">上传文件</button>
+            <button class="input-mode-btn" onclick="switchInputMode('disease','url',this)">文件 URL</button>
+            <button class="input-mode-btn" onclick="switchInputMode('disease','fileid',this)">已有文件 ID</button>
+          </div>
+          <div id="diseaseFileMode">
+            <div class="file-upload" id="diseaseFileUpload">
+              <input type="file" id="diseaseFile" accept=".hdf5,.h5,.edf">
+              <div class="file-upload-icon">&#128203;</div>
+              <div class="file-upload-text">上传嵌入 HDF5 文件（或 EDF 文件自动走完整流程）</div>
+              <div class="file-name" id="diseaseFileName"></div>
+            </div>
+          </div>
+          <div id="diseaseUrlMode" class="url-input-wrapper">
+            <input type="text" id="diseaseFileUrl" placeholder="嵌入文件或 EDF 文件的下载地址">
+          </div>
+          <div id="diseaseFileidMode" class="url-input-wrapper">
+            <input type="text" id="diseaseEmbedFileId" placeholder="输入嵌入文件 ID（如 embed_xxxxxxxxxxxx）">
+            <div class="help-text">使用之前生成嵌入步骤导出的 embedding_file_id</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>年龄</label>
+            <input type="number" id="diseaseAge" step="1" min="0" max="150" placeholder="例如 45">
+            <div class="help-text">请输入真实年龄（整数），后台将自动归一化处理</div>
+          </div>
+          <div class="form-group">
+            <label>性别</label>
+            <select id="diseaseGender">
+              <option value="0">女性 (0)</option>
+              <option value="1">男性 (1)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>最低风险评分阈值</label>
+          <input type="number" id="diseaseMinHazard" step="0.001" placeholder="留空返回全部">
+          <div class="help-text">仅返回 hazard_score >= 该值的疾病，不填则返回全部</div>
+        </div>
+        <button class="btn btn-primary" id="diseaseBtn" onclick="runDisease()">开始疾病预测</button>
+      </div>
+    </div>
+    <div class="result-section" id="diseaseResults">
+      <div class="card">
+        <div class="card-header">
+          <h2>疾病风险排名</h2>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="desc" id="diseaseStandaloneCount">Cox 比例风险模型评分</div>
+            <button class="btn btn-sm btn-outline" id="diseaseExportBtn" style="display:none" onclick="downloadExportFile(_diseaseResultFileId, 'disease_result')">导出结果 (JSON)</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="epoch-list" style="max-height:600px">
+            <table>
+              <thead><tr><th>排名</th><th>疾病编码</th><th>疾病名称</th><th>风险评分</th></tr></thead>
+              <tbody id="diseaseStandaloneTableBody"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1016,9 +1190,15 @@ tr:hover td { background: var(--primary-light); }
 <script>
 const API_BASE = '';
 let allLabels = [];
-const inputModes = { predict: 'file', preproc: 'file', embed: 'file' };
+const inputModes = { predict: 'file', preproc: 'file', embed: 'file', staging: 'file', disease: 'file' };
 let pollTimer = null;
 let sysStatsTimer = null;
+let _preprocFileId = null;
+let _embedFileId = null;
+let _stagingResultFileId = null;
+let _diseaseResultFileId = null;
+let _standaloneStaging = null;
+let _standaloneStageFilter = null;
 
 /* ========== Tab Switching ========== */
 document.querySelectorAll('.tab').forEach(tab => {
@@ -1039,13 +1219,10 @@ function switchInputMode(prefix, mode, btn) {
   btn.classList.add('active');
   const fileDiv = document.getElementById(prefix + 'FileMode');
   const urlDiv = document.getElementById(prefix + 'UrlMode');
-  if (mode === 'file') {
-    fileDiv.style.display = '';
-    urlDiv.classList.remove('active');
-  } else {
-    fileDiv.style.display = 'none';
-    urlDiv.classList.add('active');
-  }
+  const fileidDiv = document.getElementById(prefix + 'FileidMode');
+  if (fileDiv) fileDiv.style.display = mode === 'file' ? '' : 'none';
+  if (urlDiv) { urlDiv.classList.remove('active'); if (mode === 'url') urlDiv.classList.add('active'); }
+  if (fileidDiv) { fileidDiv.classList.remove('active'); if (mode === 'fileid') fileidDiv.classList.add('active'); }
 }
 
 function getFileFormData(prefix) {
@@ -1086,6 +1263,8 @@ function setupFileUpload(uploadId, inputId, nameId) {
 setupFileUpload('predictFileUpload', 'predictFile', 'predictFileName');
 setupFileUpload('preprocFileUpload', 'preprocFile', 'preprocFileName');
 setupFileUpload('embedFileUpload', 'embedFile', 'embedFileName');
+setupFileUpload('stagingFileUpload', 'stagingFile', 'stagingFileName');
+setupFileUpload('diseaseFileUpload', 'diseaseFile', 'diseaseFileName');
 
 /* ========== System Stats (Header Bar) ========== */
 async function updateSysStats() {
@@ -1151,7 +1330,8 @@ function renderLiveProgress(ts) {
   document.getElementById('lpFileSize').textContent = ts.file_size_mb ? `(${ts.file_size_mb} MB)` : '';
   document.getElementById('lpTimer').textContent = fmtSec(ts.elapsed_seconds);
   document.getElementById('lpBarFill').style.width = ts.progress_pct + '%';
-  document.getElementById('lpPct').textContent = ts.progress_pct + '%';
+  const remainText = ts.estimated_remaining_seconds != null ? ` · 预计剩余 ${fmtSec(ts.estimated_remaining_seconds)}` : '';
+  document.getElementById('lpPct').textContent = ts.progress_pct + '%' + remainText;
   document.getElementById('lpStageLabel').textContent = ts.stage_label || '等待中…';
 
   const stagesDone = new Set(ts.stages_done || []);
@@ -1244,6 +1424,8 @@ function syntaxHighlight(json) {
 }
 
 const STAGE_NAME_MAP = { Wake: '清醒', N1: 'N1 浅睡', N2: 'N2 浅睡', N3: 'N3 深睡', REM: 'REM 快速眼动' };
+let _stagingData = null;
+let _currentStageFilter = null;
 
 /* ========== Load Health ========== */
 async function loadHealth() {
@@ -1334,7 +1516,34 @@ function filterLabels() {
 let _predictDoStaging = false;
 let _predictDoDisease = false;
 
+async function checkTaskBusy() {
+  try {
+    const r = await fetch(API_BASE + '/api/v1/task_status');
+    if (!r.ok) return null;
+    const ts = await r.json();
+    if (ts.active) return ts;
+  } catch { /* ignore */ }
+  return null;
+}
+
+function showBusyWarning(ts) {
+  const elapsed = ts.elapsed_seconds ? fmtSec(ts.elapsed_seconds) : '--';
+  const remaining = ts.estimated_remaining_seconds != null ? fmtSec(ts.estimated_remaining_seconds) : '未知';
+  const stage = ts.stage_label || ts.stage;
+  const pct = ts.progress_pct || 0;
+  const file = ts.filename || '未知文件';
+  alert(`当前有一个推理任务正在处理中，请等待完成后再提交。\n\n` +
+    `文件：${file}\n` +
+    `当前阶段：${stage}\n` +
+    `进度：${pct}%\n` +
+    `已运行：${elapsed}\n` +
+    `预计剩余：${remaining}`);
+}
+
 async function runPredict() {
+  const busy = await checkTaskBusy();
+  if (busy) { showBusyWarning(busy); return; }
+
   const fd = getFileFormData('predict');
   if (!fd) { alert(getFileInputError('predict')); return; }
 
@@ -1389,7 +1598,6 @@ async function runPredict() {
       return;
     }
 
-    /* Task accepted — now wait for completion via polling */
     await waitForResult();
 
   } catch (e) {
@@ -1460,6 +1668,25 @@ function showPredictResults(data, doStaging, doDisease) {
   banner.className = 'result-banner success';
   banner.textContent = '推理完成';
 
+  const exportBar = document.getElementById('predictExportBar');
+  if (data.export_ids) {
+    const ids = data.export_ids;
+    let btns = [];
+    if (ids.preprocessed_file_id) btns.push(`<button class="btn btn-sm btn-outline" onclick="downloadExportFile('${ids.preprocessed_file_id}','preproc')">下载预处理文件</button>`);
+    if (ids.embedding_file_id) btns.push(`<button class="btn btn-sm btn-outline" onclick="downloadExportFile('${ids.embedding_file_id}','embed')">下载嵌入文件</button>`);
+    if (ids.staging_result_file_id) btns.push(`<button class="btn btn-sm btn-outline" onclick="downloadExportFile('${ids.staging_result_file_id}','staging')">导出睡眠分期结果</button>`);
+    if (ids.disease_result_file_id) btns.push(`<button class="btn btn-sm btn-outline" onclick="downloadExportFile('${ids.disease_result_file_id}','disease')">导出疾病预测结果</button>`);
+    if (ids.embedding_file_id) {
+      _embedFileId = ids.embedding_file_id;
+      btns.push(`<button class="btn btn-sm btn-primary" onclick="useEmbedFileInStaging()">嵌入→睡眠分期</button>`);
+      btns.push(`<button class="btn btn-sm btn-primary" onclick="useEmbedFileInDisease()">嵌入→疾病预测</button>`);
+    }
+    exportBar.innerHTML = btns.join('');
+    exportBar.style.display = 'flex';
+  } else {
+    exportBar.style.display = 'none';
+  }
+
   const tabsDiv = document.getElementById('resultSubTabs');
   let tabs = [];
   if (doStaging && data.sleep_staging) tabs.push({ id: 'resultStaging', label: '睡眠分期' });
@@ -1476,34 +1703,10 @@ function showPredictResults(data, doStaging, doDisease) {
   if (tabs.length) document.getElementById(tabs[0].id).classList.add('active');
 
   if (data.sleep_staging) {
-    const ss = data.sleep_staging;
-    const colors = { Wake: '#ff6b6b', N1: '#ffd93d', N2: '#6bcb77', N3: '#4d96ff', REM: '#9b59b6' };
-    document.getElementById('stagingStats').innerHTML = Object.entries(ss.summary).map(([name, s]) => `
-      <div class="stat-card">
-        <div class="value" style="color:${colors[name] || 'inherit'}">${s.count}</div>
-        <div class="label">${STAGE_NAME_MAP[name] || name}</div>
-        <div class="pct">${s.percentage}%</div>
-      </div>
-    `).join('');
-
-    document.getElementById('epochCount').textContent = '共 ' + ss.total_epochs + ' 个时段（每段 5 秒）';
-    const tbody = document.getElementById('epochTableBody');
-    tbody.innerHTML = ss.epochs.slice(0, 500).map(e => {
-      const p = e.probabilities;
-      return `<tr>
-        <td>${e.index}</td>
-        <td>${formatTime(e.start_sec)} - ${formatTime(e.end_sec)}</td>
-        <td><strong style="color:${colors[e.predicted_stage]}">${STAGE_NAME_MAP[e.predicted_stage] || e.predicted_stage}</strong></td>
-        <td>${p.Wake.toFixed(3)}</td>
-        <td>${p.N1.toFixed(3)}</td>
-        <td>${p.N2.toFixed(3)}</td>
-        <td>${p.N3.toFixed(3)}</td>
-        <td>${p.REM.toFixed(3)}</td>
-      </tr>`;
-    }).join('');
-    if (ss.epochs.length > 500) {
-      tbody.innerHTML += `<tr><td colspan="8" style="text-align:center;color:var(--text-tertiary)">仅显示前 500 条，共 ${ss.total_epochs} 个时段</td></tr>`;
-    }
+    _stagingData = data.sleep_staging;
+    _currentStageFilter = null;
+    renderStagingStats(_stagingData);
+    renderStagingEpochs(_stagingData.epochs, null);
   }
 
   if (data.disease_prediction) {
@@ -1541,6 +1744,72 @@ function switchSubTab(panelId, btn) {
   btn.classList.add('active');
 }
 
+const STAGE_COLORS = { Wake: '#ff6b6b', N1: '#ffd93d', N2: '#6bcb77', N3: '#4d96ff', REM: '#9b59b6' };
+
+function renderStagingStats(ss) {
+  document.getElementById('stagingStats').innerHTML = Object.entries(ss.summary).map(([name, s]) => `
+    <div class="stat-card ${_currentStageFilter === name ? 'active-filter' : ''}" onclick="toggleStageFilter('${name}')">
+      <div class="value" style="color:${STAGE_COLORS[name] || 'inherit'}">${s.count}</div>
+      <div class="label">${STAGE_NAME_MAP[name] || name}</div>
+      <div class="pct">${s.percentage}%</div>
+    </div>
+  `).join('');
+}
+
+function renderStagingEpochs(epochs, filterStage) {
+  const filtered = filterStage ? epochs.filter(e => e.predicted_stage === filterStage) : epochs;
+  const total = epochs.length;
+  const showing = filtered.length;
+
+  document.getElementById('epochCount').textContent = '共 ' + total + ' 个时段（每段 5 秒）';
+
+  const filterInfo = document.getElementById('stageFilterInfo');
+  const clearBtn = document.getElementById('stageFilterClearBtn');
+  if (filterStage) {
+    filterInfo.style.display = '';
+    filterInfo.textContent = `筛选：${STAGE_NAME_MAP[filterStage] || filterStage}（${showing} 条）`;
+    clearBtn.style.display = '';
+  } else {
+    filterInfo.style.display = 'none';
+    clearBtn.style.display = 'none';
+  }
+
+  const tbody = document.getElementById('epochTableBody');
+  const displayEpochs = filtered.slice(0, 500);
+  tbody.innerHTML = displayEpochs.map(e => {
+    const p = e.probabilities;
+    return `<tr>
+      <td>${e.index}</td>
+      <td>${formatTime(e.start_sec)} - ${formatTime(e.end_sec)}</td>
+      <td><strong style="color:${STAGE_COLORS[e.predicted_stage]}">${STAGE_NAME_MAP[e.predicted_stage] || e.predicted_stage}</strong></td>
+      <td>${p.Wake.toFixed(3)}</td>
+      <td>${p.N1.toFixed(3)}</td>
+      <td>${p.N2.toFixed(3)}</td>
+      <td>${p.N3.toFixed(3)}</td>
+      <td>${p.REM.toFixed(3)}</td>
+    </tr>`;
+  }).join('');
+  if (filtered.length > 500) {
+    tbody.innerHTML += `<tr><td colspan="8" style="text-align:center;color:var(--text-tertiary)">仅显示前 500 条，共 ${showing} 条${filterStage ? '（筛选后）' : ''}</td></tr>`;
+  }
+}
+
+function toggleStageFilter(stage) {
+  if (_currentStageFilter === stage) {
+    _currentStageFilter = null;
+  } else {
+    _currentStageFilter = stage;
+  }
+  renderStagingStats(_stagingData);
+  renderStagingEpochs(_stagingData.epochs, _currentStageFilter);
+}
+
+function clearStageFilter() {
+  _currentStageFilter = null;
+  renderStagingStats(_stagingData);
+  renderStagingEpochs(_stagingData.epochs, null);
+}
+
 /* ========== Preprocess ========== */
 async function runPreprocess() {
   const fd = getFileFormData('preproc');
@@ -1559,6 +1828,9 @@ async function runPreprocess() {
     }
     if (!r.ok) throw new Error(d.detail || '请求失败');
 
+    _preprocFileId = d.preprocessed_file_id;
+    document.getElementById('preprocDownloadBtn').style.display = '';
+    document.getElementById('preprocUseNextBtn').style.display = '';
     document.getElementById('preprocResults').classList.add('active');
     const info = document.getElementById('preprocInfo');
     const ch = d.channels;
@@ -1567,6 +1839,7 @@ async function runPreprocess() {
         <h4>记录信息</h4>
         <div class="health-item"><span class="key">时长</span><span class="val">${formatTime(d.duration_seconds)}（${d.duration_seconds.toFixed(0)} 秒）</span></div>
         <div class="health-item"><span class="key">采样率</span><span class="val">${d.sample_rate} Hz</span></div>
+        <div class="health-item"><span class="key">文件 ID</span><span class="val" style="font-size:12px;word-break:break-all">${d.preprocessed_file_id}</span></div>
       </div>
       <div class="info-block">
         <h4>按模态分组的通道</h4>
@@ -1590,8 +1863,20 @@ async function runPreprocess() {
 
 /* ========== Embed ========== */
 async function runEmbed() {
-  const fd = getFileFormData('embed');
-  if (!fd) { alert(getFileInputError('embed')); return; }
+  const fd = new FormData();
+  if (inputModes.embed === 'file') {
+    const fileInput = document.getElementById('embedFile');
+    if (!fileInput.files[0]) { alert('请选择文件'); return; }
+    fd.append('file', fileInput.files[0]);
+  } else if (inputModes.embed === 'url') {
+    const url = document.getElementById('embedFileUrl').value.trim();
+    if (!url) { alert('请输入文件 URL'); return; }
+    fd.append('file_url', url);
+  } else {
+    const fileId = document.getElementById('embedPreprocFileId').value.trim();
+    if (!fileId) { alert('请输入预处理文件 ID'); return; }
+    fd.append('preprocessed_file_id', fileId);
+  }
 
   setLoading('embedBtn', true);
 
@@ -1606,6 +1891,10 @@ async function runEmbed() {
     }
     if (!r.ok) throw new Error(d.detail || '请求失败');
 
+    _embedFileId = d.embedding_file_id;
+    document.getElementById('embedDownloadBtn').style.display = '';
+    document.getElementById('embedUseForStagingBtn').style.display = '';
+    document.getElementById('embedUseForDiseaseBtn').style.display = '';
     document.getElementById('embedResults').classList.add('active');
     const info = document.getElementById('embedInfo');
     info.innerHTML = `
@@ -1625,12 +1914,220 @@ async function runEmbed() {
           <div class="label">嵌入维度</div>
         </div>
       </div>
+      <div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">嵌入文件 ID：<strong>${d.embedding_file_id}</strong></div>
     `;
     document.getElementById('embedRawJson').innerHTML = syntaxHighlight(d);
   } catch (e) {
     alert('错误：' + e.message);
   } finally {
     setLoading('embedBtn', false);
+  }
+}
+
+/* ========== Download & Export Utilities ========== */
+function downloadExportFile(fileId, label) {
+  if (!fileId) { alert('没有可下载的文件'); return; }
+  const a = document.createElement('a');
+  a.href = API_BASE + '/api/v1/download/' + fileId;
+  a.download = fileId;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function usePreprocFileInEmbed() {
+  if (!_preprocFileId) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-panel="embed"]').classList.add('active');
+  document.getElementById('panel-embed').classList.add('active');
+  switchInputMode('embed', 'fileid', document.querySelector('#panel-embed .input-mode-btn:last-child'));
+  if (!document.getElementById('embedFileidMode')) {
+    const embedCard = document.querySelector('#panel-embed .card-body .form-group');
+    const toggle = embedCard.querySelector('.input-mode-toggle');
+    if (!toggle.querySelector('[onclick*="fileid"]')) {
+      const btn = document.createElement('button');
+      btn.className = 'input-mode-btn';
+      btn.textContent = '已有文件 ID';
+      btn.onclick = function() { switchInputMode('embed', 'fileid', this); };
+      toggle.appendChild(btn);
+    }
+  }
+  const input = document.getElementById('embedPreprocFileId');
+  if (input) input.value = _preprocFileId;
+}
+
+function useEmbedFileInStaging() {
+  if (!_embedFileId) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-panel="staging"]').classList.add('active');
+  document.getElementById('panel-staging').classList.add('active');
+  const btns = document.querySelectorAll('#panel-staging .input-mode-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  btns[btns.length - 1].classList.add('active');
+  switchInputMode('staging', 'fileid', btns[btns.length - 1]);
+  document.getElementById('stagingEmbedFileId').value = _embedFileId;
+}
+
+function useEmbedFileInDisease() {
+  if (!_embedFileId) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-panel="disease"]').classList.add('active');
+  document.getElementById('panel-disease').classList.add('active');
+  const btns = document.querySelectorAll('#panel-disease .input-mode-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  btns[btns.length - 1].classList.add('active');
+  switchInputMode('disease', 'fileid', btns[btns.length - 1]);
+  document.getElementById('diseaseEmbedFileId').value = _embedFileId;
+}
+
+/* ========== Standalone Sleep Staging ========== */
+async function runStaging() {
+  const fd = new FormData();
+  if (inputModes.staging === 'file') {
+    const fileInput = document.getElementById('stagingFile');
+    if (!fileInput.files[0]) { alert('请选择文件'); return; }
+    fd.append('file', fileInput.files[0]);
+  } else if (inputModes.staging === 'url') {
+    const url = document.getElementById('stagingFileUrl').value.trim();
+    if (!url) { alert('请输入文件 URL'); return; }
+    fd.append('file_url', url);
+  } else {
+    const fileId = document.getElementById('stagingEmbedFileId').value.trim();
+    if (!fileId) { alert('请输入嵌入文件 ID'); return; }
+    fd.append('embedding_file_id', fileId);
+  }
+
+  setLoading('stagingBtn', true);
+  try {
+    const r = await fetch(API_BASE + '/api/v1/sleep_staging', { method: 'POST', body: fd });
+    const text = await r.text();
+    let d;
+    try { d = JSON.parse(text); } catch { throw new Error('响应解析失败'); }
+    if (!r.ok) throw new Error(d.detail || '请求失败');
+
+    _stagingResultFileId = d.result_file_id;
+    document.getElementById('stagingExportBtn').style.display = '';
+    document.getElementById('stagingResults').classList.add('active');
+
+    const ss = d.sleep_staging;
+    _standaloneStaging = ss;
+    _standaloneStageFilter = null;
+    renderStandaloneStaging(ss, null);
+  } catch (e) {
+    alert('错误：' + e.message);
+  } finally {
+    setLoading('stagingBtn', false);
+  }
+}
+
+function renderStandaloneStaging(ss, filterStage) {
+  document.getElementById('stagingStandaloneStats').innerHTML = Object.entries(ss.summary).map(([name, s]) => `
+    <div class="stat-card ${_standaloneStageFilter === name ? 'active-filter' : ''}" onclick="toggleStandaloneStageFilter('${name}')">
+      <div class="value" style="color:${STAGE_COLORS[name] || 'inherit'}">${s.count}</div>
+      <div class="label">${STAGE_NAME_MAP[name] || name}</div>
+      <div class="pct">${s.percentage}%</div>
+    </div>
+  `).join('');
+
+  const epochs = ss.epochs;
+  const filtered = filterStage ? epochs.filter(e => e.predicted_stage === filterStage) : epochs;
+  document.getElementById('stagingStandaloneEpochCount').textContent = '共 ' + epochs.length + ' 个时段';
+
+  const filterInfo = document.getElementById('stagingStandaloneFilterInfo');
+  const clearBtn = document.getElementById('stagingStandaloneFilterClearBtn');
+  if (filterStage) {
+    filterInfo.style.display = '';
+    filterInfo.textContent = `筛选：${STAGE_NAME_MAP[filterStage] || filterStage}（${filtered.length} 条）`;
+    clearBtn.style.display = '';
+  } else {
+    filterInfo.style.display = 'none';
+    clearBtn.style.display = 'none';
+  }
+
+  const tbody = document.getElementById('stagingStandaloneTableBody');
+  tbody.innerHTML = filtered.slice(0, 500).map(e => {
+    const p = e.probabilities;
+    return `<tr>
+      <td>${e.index}</td>
+      <td>${formatTime(e.start_sec)} - ${formatTime(e.end_sec)}</td>
+      <td><strong style="color:${STAGE_COLORS[e.predicted_stage]}">${STAGE_NAME_MAP[e.predicted_stage] || e.predicted_stage}</strong></td>
+      <td>${p.Wake.toFixed(3)}</td><td>${p.N1.toFixed(3)}</td><td>${p.N2.toFixed(3)}</td><td>${p.N3.toFixed(3)}</td><td>${p.REM.toFixed(3)}</td>
+    </tr>`;
+  }).join('');
+  if (filtered.length > 500) {
+    tbody.innerHTML += `<tr><td colspan="8" style="text-align:center;color:var(--text-tertiary)">仅显示前 500 条，共 ${filtered.length} 条</td></tr>`;
+  }
+}
+
+function toggleStandaloneStageFilter(stage) {
+  _standaloneStageFilter = _standaloneStageFilter === stage ? null : stage;
+  renderStandaloneStaging(_standaloneStaging, _standaloneStageFilter);
+}
+
+function clearStandaloneStageFilter() {
+  _standaloneStageFilter = null;
+  renderStandaloneStaging(_standaloneStaging, null);
+}
+
+/* ========== Standalone Disease Prediction ========== */
+async function runDisease() {
+  const fd = new FormData();
+  if (inputModes.disease === 'file') {
+    const fileInput = document.getElementById('diseaseFile');
+    if (!fileInput.files[0]) { alert('请选择文件'); return; }
+    fd.append('file', fileInput.files[0]);
+  } else if (inputModes.disease === 'url') {
+    const url = document.getElementById('diseaseFileUrl').value.trim();
+    if (!url) { alert('请输入文件 URL'); return; }
+    fd.append('file_url', url);
+  } else {
+    const fileId = document.getElementById('diseaseEmbedFileId').value.trim();
+    if (!fileId) { alert('请输入嵌入文件 ID'); return; }
+    fd.append('embedding_file_id', fileId);
+  }
+
+  const age = document.getElementById('diseaseAge').value;
+  const gender = document.getElementById('diseaseGender').value;
+  if (!age) { alert('请填写年龄'); return; }
+
+  fd.append('age', age);
+  fd.append('gender', gender);
+
+  const minHazard = document.getElementById('diseaseMinHazard').value;
+  if (minHazard) fd.append('min_hazard_score', minHazard);
+
+  setLoading('diseaseBtn', true);
+  try {
+    const r = await fetch(API_BASE + '/api/v1/disease_prediction', { method: 'POST', body: fd });
+    const text = await r.text();
+    let d;
+    try { d = JSON.parse(text); } catch { throw new Error('响应解析失败'); }
+    if (!r.ok) throw new Error(d.detail || '请求失败');
+
+    _diseaseResultFileId = d.result_file_id;
+    document.getElementById('diseaseExportBtn').style.display = '';
+    document.getElementById('diseaseResults').classList.add('active');
+
+    const dp = d.disease_prediction;
+    const count = dp.top_risks.length;
+    const total = dp.all_hazards_count;
+    document.getElementById('diseaseStandaloneCount').textContent =
+      count < total ? `显示 ${count} 种高风险疾病（共 ${total} 种）` : `共 ${total} 种疾病`;
+    document.getElementById('diseaseStandaloneTableBody').innerHTML = dp.top_risks.map(r => {
+      const badge = r.rank <= 1 ? 'gold' : r.rank <= 2 ? 'silver' : r.rank <= 3 ? 'bronze' : '';
+      return `<tr>
+        <td><span class="rank-badge ${badge}">${r.rank}</span></td>
+        <td>${r.phecode}</td><td>${r.phenotype}</td>
+        <td><strong>${r.hazard_score.toFixed(4)}</strong></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    alert('错误：' + e.message);
+  } finally {
+    setLoading('diseaseBtn', false);
   }
 }
 
