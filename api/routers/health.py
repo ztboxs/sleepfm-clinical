@@ -11,16 +11,46 @@ from api import schemas
 router = APIRouter(prefix="/api/v1", tags=["health"])
 
 
-def _read_ram_info() -> dict:
-    """Read system RAM stats from /proc/meminfo (Linux only)."""
+def _read_cgroup_bytes(path: str) -> int | None:
     try:
+        with open(path) as f:
+            val = f.read().strip()
+            if val == "max":
+                return None
+            v = int(val)
+            return v if v < 2**62 else None
+    except Exception:
+        return None
+
+
+def _read_ram_info() -> dict:
+    """Read container RAM via cgroup, fallback to /proc/meminfo."""
+    try:
+        cg_limit = (
+            _read_cgroup_bytes("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+            or _read_cgroup_bytes("/sys/fs/cgroup/memory.max")
+        )
+        cg_usage = (
+            _read_cgroup_bytes("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+            or _read_cgroup_bytes("/sys/fs/cgroup/memory.current")
+        )
+
+        if cg_limit and cg_usage:
+            total = cg_limit / 1024 / 1024
+            used = cg_usage / 1024 / 1024
+            return {
+                "total_mb": round(total),
+                "used_mb": round(used),
+                "available_mb": round(total - used),
+            }
+
         info = {}
         with open("/proc/meminfo") as f:
             for line in f:
                 parts = line.split()
                 key = parts[0].rstrip(":")
-                if key in ("MemTotal", "MemAvailable", "MemFree", "Buffers", "Cached"):
-                    info[key] = int(parts[1]) / 1024  # kB -> MB
+                if key in ("MemTotal", "MemAvailable"):
+                    info[key] = int(parts[1]) / 1024
         total = info.get("MemTotal", 0)
         available = info.get("MemAvailable", 0)
         return {

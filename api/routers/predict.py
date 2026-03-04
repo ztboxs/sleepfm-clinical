@@ -208,10 +208,10 @@ async def predict(
         )
 
     if tracker.active:
-        raise HTTPException(
-            status_code=409,
-            detail="另一个推理任务正在进行中，请等待完成后再提交",
-        )
+        return {
+            "status": "busy",
+            "message": "当前有一个推理任务正在处理中，请等待完成后再提交新任务。您可以通过页面上的进度条查看当前任务状态。",
+        }
 
     tmp_dir = tempfile.mkdtemp(prefix="sleepfm_")
     try:

@@ -452,6 +452,7 @@ input:focus, select:focus {
 
 .result-banner.success { background: var(--success-bg); color: var(--success); }
 .result-banner.error { background: var(--error-bg); color: var(--error); }
+.result-banner.warning { background: var(--warning-bg); color: #856404; }
 
 .stats-grid {
   display: grid;
@@ -1376,6 +1377,17 @@ async function runPredict() {
     }
 
     if (!r.ok) throw new Error(d.detail || `请求失败（HTTP ${r.status}）`);
+
+    if (d.status === 'busy') {
+      stopPolling();
+      setLoading('predictBtn', false);
+      const banner = document.getElementById('predictBanner');
+      banner.className = 'result-banner warning';
+      banner.innerHTML = '⏳ ' + d.message;
+      document.getElementById('predictResults').classList.add('active');
+      document.getElementById('resultSubTabs').innerHTML = '';
+      return;
+    }
 
     /* Task accepted — now wait for completion via polling */
     await waitForResult();
