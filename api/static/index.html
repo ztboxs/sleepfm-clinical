@@ -692,6 +692,187 @@ tr:hover td { background: var(--primary-light); }
   border-radius: 4px;
   transition: width 0.5s;
 }
+
+/* ========== Task Status Header Badge ========== */
+.task-status-wrap {
+  position: relative;
+}
+
+.task-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+
+.task-badge:hover { filter: brightness(0.95); }
+
+.task-badge.idle {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.task-badge.running {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.task-badge.running .status-dot {
+  animation: pulse-dot 1.5s ease infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.task-badge.error-state {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.task-badge.done-state {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.task-badge-progress {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.task-detail-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 0;
+  min-width: 360px;
+  z-index: 200;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+}
+
+.task-detail-panel.open { display: block; }
+
+.task-detail-header {
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.task-detail-body {
+  padding: 16px;
+}
+
+.task-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.task-detail-row .tdk {
+  color: var(--text-secondary);
+}
+
+.task-detail-row .tdv {
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-detail-bar-track {
+  height: 6px;
+  background: var(--border-light);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.task-detail-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 3px;
+  transition: width 0.8s ease;
+}
+
+.task-detail-stages {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 12px;
+}
+
+.task-detail-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+}
+
+.task-detail-stage-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.task-detail-stage-icon.pending { background: var(--border-light); color: var(--text-tertiary); }
+.task-detail-stage-icon.active { background: var(--primary-light); color: var(--primary); animation: pulse 1.5s ease infinite; }
+.task-detail-stage-icon.done { background: var(--success-bg); color: var(--success); }
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  top: 68px;
+  right: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-lg);
+  z-index: 300;
+  font-size: 14px;
+  max-width: 400px;
+  animation: toast-in 0.3s ease;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.toast.toast-error {
+  border-left-color: var(--error);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>
 </head>
 <body>
@@ -702,6 +883,22 @@ tr:hover td { background: var(--primary-light); }
     <h1>SleepFM<span>临床模型 API 控制台</span></h1>
   </div>
   <div class="sys-stats" id="sysStats">
+    <div class="task-status-wrap">
+      <div class="task-badge idle" id="taskBadge" onclick="toggleTaskDetail()">
+        <div class="status-dot"></div>
+        <span id="taskBadgeText">空闲</span>
+      </div>
+      <div class="task-detail-panel" id="taskDetailPanel">
+        <div class="task-detail-header">
+          <span>任务状态详情</span>
+          <span id="taskDetailTimer" style="font-variant-numeric:tabular-nums">--</span>
+        </div>
+        <div class="task-detail-body" id="taskDetailBody">
+          <div style="color:var(--text-tertiary);text-align:center;padding:8px">当前无任务</div>
+        </div>
+      </div>
+    </div>
+    <div class="sys-stat-divider"></div>
     <div class="sys-stat-item">
       <span class="sys-stat-label">GPU</span>
       <div class="sys-stat-bar"><div class="sys-stat-bar-fill low" id="gpuBarFill" style="width:0%"></div></div>
@@ -1369,17 +1566,23 @@ async function pollTaskStatus() {
     if (!r.ok) return;
     const ts = await r.json();
     renderLiveProgress(ts);
+    updateTaskBadge(ts);
   } catch { /* ignore */ }
 }
 
-function startPolling() {
+function showUploadingProgress() {
   const el = document.getElementById('liveProgress');
   el.classList.add('active');
+  document.getElementById('lpFileName').textContent = '正在上传文件…';
+  document.getElementById('lpFileSize').textContent = '';
   document.getElementById('lpStages').innerHTML = '<div class="lp-stage"><div class="lp-stage-icon active">&#9679;</div><span class="lp-stage-name active">正在上传文件到服务器…</span><span class="lp-stage-time"></span></div>';
   document.getElementById('lpBarFill').style.width = '1%';
-  document.getElementById('lpPct').textContent = '1%';
+  document.getElementById('lpPct').textContent = '';
   document.getElementById('lpStageLabel').textContent = '正在上传文件…';
   document.getElementById('lpTimer').textContent = '0:00';
+}
+
+function startPolling() {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(pollTaskStatus, 2000);
 }
@@ -1512,37 +1715,122 @@ function filterLabels() {
   renderLabels(allLabels.filter(l => l.phenotype.toLowerCase().includes(q) || l.phecode.includes(q)));
 }
 
+/* ========== Task Status Header ========== */
+let _lastTaskStatus = null;
+let _taskDetailOpen = false;
+let _taskStatusTimer = null;
+
+function toggleTaskDetail() {
+  _taskDetailOpen = !_taskDetailOpen;
+  document.getElementById('taskDetailPanel').classList.toggle('open', _taskDetailOpen);
+  if (_taskDetailOpen) {
+    document.addEventListener('click', _closeTaskDetailOutside);
+  } else {
+    document.removeEventListener('click', _closeTaskDetailOutside);
+  }
+}
+
+function _closeTaskDetailOutside(e) {
+  const wrap = document.querySelector('.task-status-wrap');
+  if (!wrap.contains(e.target)) {
+    _taskDetailOpen = false;
+    document.getElementById('taskDetailPanel').classList.remove('open');
+    document.removeEventListener('click', _closeTaskDetailOutside);
+  }
+}
+
+function updateTaskBadge(ts) {
+  _lastTaskStatus = ts;
+  const badge = document.getElementById('taskBadge');
+  const text = document.getElementById('taskBadgeText');
+
+  if (ts.active) {
+    badge.className = 'task-badge running';
+    const pct = ts.progress_pct || 0;
+    const stage = ts.stage_label || ts.stage;
+    const shortStage = stage.length > 12 ? stage.substring(0, 12) + '…' : stage;
+    text.innerHTML = `<span class="task-badge-progress">${pct}%</span> ${shortStage}`;
+  } else if (ts.error) {
+    badge.className = 'task-badge error-state';
+    text.textContent = '任务失败';
+  } else if (ts.stage === 'done') {
+    badge.className = 'task-badge done-state';
+    text.textContent = '已完成';
+  } else {
+    badge.className = 'task-badge idle';
+    text.textContent = '空闲';
+  }
+
+  const timer = document.getElementById('taskDetailTimer');
+  timer.textContent = ts.started_at || ts.elapsed_seconds ? fmtSec(ts.elapsed_seconds) : '--';
+
+  const body = document.getElementById('taskDetailBody');
+  if (!ts.filename && ts.stage === 'idle') {
+    body.innerHTML = '<div style="color:var(--text-tertiary);text-align:center;padding:8px">当前无任务</div>';
+    return;
+  }
+
+  const remaining = ts.estimated_remaining_seconds != null ? fmtSec(ts.estimated_remaining_seconds) : '--';
+  const avgDur = ts.avg_task_duration_seconds != null ? fmtSec(ts.avg_task_duration_seconds) : '--';
+  const stagesDone = new Set(ts.stages_done || []);
+  const currentStage = ts.stage;
+
+  const visibleStages = STAGE_DEFS.filter(s => {
+    if (s.key === 'downloading' && !stagesDone.has('downloading') && currentStage !== 'downloading') return false;
+    if (s.key === 'uploading' && !stagesDone.has('uploading') && currentStage !== 'uploading') return false;
+    if (s.key === 'upload_done' && !stagesDone.has('upload_done') && currentStage !== 'upload_done') return false;
+    return true;
+  });
+
+  const stagesHtml = visibleStages.map(s => {
+    let cls = 'pending', icon = '&#9675;';
+    if (stagesDone.has(s.key)) { cls = 'done'; icon = '&#10003;'; }
+    else if (currentStage === s.key) { cls = 'active'; icon = '&#9679;'; }
+    return `<div class="task-detail-stage"><div class="task-detail-stage-icon ${cls}">${icon}</div><span>${s.label}</span></div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="task-detail-row"><span class="tdk">文件</span><span class="tdv" title="${ts.filename || '--'}">${ts.filename || '--'}</span></div>
+    <div class="task-detail-row"><span class="tdk">状态</span><span class="tdv">${ts.active ? '运行中' : ts.error ? '失败' : ts.stage === 'done' ? '已完成' : '空闲'}</span></div>
+    <div class="task-detail-row"><span class="tdk">当前阶段</span><span class="tdv">${ts.stage_label || '--'}</span></div>
+    <div class="task-detail-row"><span class="tdk">进度</span><span class="tdv">${ts.progress_pct || 0}%</span></div>
+    <div class="task-detail-row"><span class="tdk">已运行</span><span class="tdv">${fmtSec(ts.elapsed_seconds)}</span></div>
+    <div class="task-detail-row"><span class="tdk">预计剩余</span><span class="tdv">${remaining}</span></div>
+    <div class="task-detail-row"><span class="tdk">历史平均耗时</span><span class="tdv">${avgDur}</span></div>
+    ${ts.error ? `<div class="task-detail-row"><span class="tdk">错误</span><span class="tdv" style="color:var(--error)">${ts.error}</span></div>` : ''}
+    <div class="task-detail-bar-track"><div class="task-detail-bar-fill" style="width:${ts.progress_pct || 0}%"></div></div>
+    <div class="task-detail-stages">${stagesHtml}</div>
+  `;
+}
+
+async function pollTaskStatusForHeader() {
+  try {
+    const r = await fetch(API_BASE + '/api/v1/task_status');
+    if (!r.ok) return;
+    const ts = await r.json();
+    updateTaskBadge(ts);
+  } catch { /* ignore */ }
+}
+
+function showToast(message, type = 'warning', duration = 4000) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast' + (type === 'error' ? ' toast-error' : '');
+  toast.innerHTML = `<span>${type === 'warning' ? '⚠️' : '❌'}</span><span>${message}</span>`;
+  document.body.appendChild(toast);
+  setTimeout(() => { if (toast.parentNode) toast.remove(); }, duration);
+}
+
 /* ========== Predict ========== */
 let _predictDoStaging = false;
 let _predictDoDisease = false;
 
-async function checkTaskBusy() {
-  try {
-    const r = await fetch(API_BASE + '/api/v1/task_status');
-    if (!r.ok) return null;
-    const ts = await r.json();
-    if (ts.active) return ts;
-  } catch { /* ignore */ }
-  return null;
-}
-
-function showBusyWarning(ts) {
-  const elapsed = ts.elapsed_seconds ? fmtSec(ts.elapsed_seconds) : '--';
-  const remaining = ts.estimated_remaining_seconds != null ? fmtSec(ts.estimated_remaining_seconds) : '未知';
-  const stage = ts.stage_label || ts.stage;
-  const pct = ts.progress_pct || 0;
-  const file = ts.filename || '未知文件';
-  alert(`当前有一个推理任务正在处理中，请等待完成后再提交。\n\n` +
-    `文件：${file}\n` +
-    `当前阶段：${stage}\n` +
-    `进度：${pct}%\n` +
-    `已运行：${elapsed}\n` +
-    `预计剩余：${remaining}`);
-}
-
 async function runPredict() {
-  const busy = await checkTaskBusy();
-  if (busy) { showBusyWarning(busy); return; }
+  if (_lastTaskStatus && _lastTaskStatus.active) {
+    showToast('当前有推理任务正在运行中，请等待完成后再提交。点击顶栏任务状态查看详情。');
+    return;
+  }
 
   const fd = getFileFormData('predict');
   if (!fd) { alert(getFileInputError('predict')); return; }
@@ -1571,7 +1859,9 @@ async function runPredict() {
 
   setLoading('predictBtn', true);
   document.getElementById('predictResults').classList.remove('active');
-  startPolling();
+  document.getElementById('predictExportBar').style.display = 'none';
+  document.getElementById('resultSubTabs').innerHTML = '';
+  showUploadingProgress();
 
   try {
     const r = await fetch(API_BASE + '/api/v1/predict', { method: 'POST', body: fd });
@@ -1588,22 +1878,19 @@ async function runPredict() {
     if (!r.ok) throw new Error(d.detail || `请求失败（HTTP ${r.status}）`);
 
     if (d.status === 'busy') {
-      stopPolling();
       setLoading('predictBtn', false);
-      const banner = document.getElementById('predictBanner');
-      banner.className = 'result-banner warning';
-      banner.innerHTML = '⏳ ' + d.message;
-      document.getElementById('predictResults').classList.add('active');
-      document.getElementById('resultSubTabs').innerHTML = '';
+      document.getElementById('liveProgress').classList.remove('active');
+      showToast(d.message || '当前有推理任务正在运行中，请等待完成后再提交。');
       return;
     }
 
+    startPolling();
     await waitForResult();
 
   } catch (e) {
-    await pollTaskStatus();
     stopPolling();
     setLoading('predictBtn', false);
+    document.getElementById('liveProgress').classList.remove('active');
     const banner = document.getElementById('predictBanner');
     banner.className = 'result-banner error';
     banner.textContent = '错误：' + e.message;
@@ -2134,6 +2421,8 @@ async function runDisease() {
 /* ========== Init ========== */
 updateSysStats();
 sysStatsTimer = setInterval(updateSysStats, 5000);
+pollTaskStatusForHeader();
+_taskStatusTimer = setInterval(pollTaskStatusForHeader, 3000);
 </script>
 </body>
 </html>

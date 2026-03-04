@@ -51,20 +51,24 @@ async def _resolve_edf_file(
     tmp_dir: str,
     file: Optional[UploadFile],
     file_url: Optional[str],
+    use_tracker: bool = True,
 ) -> str:
     """Resolve EDF file from upload or URL, return local path."""
     if file and file.filename:
         if not file.filename.lower().endswith(".edf"):
             raise HTTPException(status_code=400, detail="Only .edf files are accepted")
-        tracker.set_stage("uploading", "正在接收文件上传…", 3)
+        if use_tracker:
+            tracker.set_stage("uploading", "正在接收文件上传…", 3)
         edf_path = os.path.join(tmp_dir, file.filename)
         await save_upload_file(file, edf_path)
         file_size_mb = os.path.getsize(edf_path) / 1024 / 1024
-        tracker.start(file.filename, file_size_mb)
+        if use_tracker:
+            tracker.start(file.filename, file_size_mb)
         return edf_path
 
     if file_url:
-        tracker.set_stage("downloading", "正在从 URL 下载文件…", 3)
+        if use_tracker:
+            tracker.set_stage("downloading", "正在从 URL 下载文件…", 3)
         loop = asyncio.get_event_loop()
         try:
             edf_path = await loop.run_in_executor(
@@ -81,7 +85,8 @@ async def _resolve_edf_file(
                 detail=f"Downloaded file is not .edf format: {os.path.basename(edf_path)}",
             )
         file_size_mb = os.path.getsize(edf_path) / 1024 / 1024
-        tracker.start(os.path.basename(edf_path), file_size_mb)
+        if use_tracker:
+            tracker.start(os.path.basename(edf_path), file_size_mb)
         return edf_path
 
     raise HTTPException(
@@ -142,7 +147,7 @@ async def preprocess(
     file_url: Optional[str] = Form(None),
 ):
     with temp_directory() as tmp_dir:
-        edf_path = await _resolve_edf_file(tmp_dir, file, file_url)
+        edf_path = await _resolve_edf_file(tmp_dir, file, file_url, use_tracker=False)
         hdf5_path = os.path.join(tmp_dir, os.path.basename(edf_path).rsplit(".", 1)[0] + ".hdf5")
 
         loop = asyncio.get_event_loop()
@@ -480,6 +485,8 @@ async def predict(
             "status": "busy",
             "message": "当前有一个推理任务正在处理中，请等待完成后再提交新任务。您可以通过页面上的进度条查看当前任务状态。",
         }
+
+    tracker.reset()
 
     tmp_dir = tempfile.mkdtemp(prefix="sleepfm_")
     try:

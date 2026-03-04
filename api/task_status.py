@@ -33,6 +33,7 @@ class TaskTracker:
         self.error: Optional[str] = None
         self.stages_done: list[str] = []
         self._result: Optional[Any] = None
+        self._finished_at: Optional[float] = None
 
     def start(self, filename: str, file_size_mb: float):
         self.reset()
@@ -62,11 +63,13 @@ class TaskTracker:
                 self._history = self._history[-20:]
         self.set_stage("done", "处理完成", 100)
         self.active = False
+        self._finished_at = time.time()
 
     def fail(self, error: str):
         self.error = error
         self.stage_label = f"失败: {error[:100]}"
         self.active = False
+        self._finished_at = time.time()
 
     @property
     def has_result(self) -> bool:
@@ -94,8 +97,9 @@ class TaskTracker:
         return sum(self._history) / len(self._history)
 
     def to_dict(self) -> dict:
-        elapsed = time.time() - self.started_at if self.started_at else 0
-        stage_elapsed = time.time() - self.stage_started_at if self.stage_started_at else 0
+        now = self._finished_at if self._finished_at else time.time()
+        elapsed = now - self.started_at if self.started_at else 0
+        stage_elapsed = now - self.stage_started_at if self.stage_started_at else 0
         remaining = self._estimate_remaining()
         return {
             "active": self.active,
