@@ -20,9 +20,41 @@ router = APIRouter(prefix="/api/v1", tags=["inference"])
 
 _gpu_lock = asyncio.Lock()
 
+# ==================== Sub-task result store ====================
+
+_subtask_results: dict[str, dict] = {}
+
+
+def _create_subtask() -> str:
+    task_id = f"sub_{uuid.uuid4().hex[:12]}"
+    _subtask_results[task_id] = {"status": "running"}
+    return task_id
+
+
+def _finish_subtask(task_id: str, result: dict):
+    result["status"] = "success"
+    _subtask_results[task_id] = result
+
+
+def _fail_subtask(task_id: str, error: str):
+    _subtask_results[task_id] = {"status": "error", "detail": error}
+
+
+@router.get("/subtask_result/{task_id}")
+async def get_subtask_result(task_id: str):
+    """Poll for a sub-task result. Returns running/success/error."""
+    if task_id not in _subtask_results:
+        raise HTTPException(status_code=404, detail="任务不存在或已过期")
+    result = _subtask_results[task_id]
+    if result["status"] == "running":
+        return {"status": "running"}
+    del _subtask_results[task_id]
+    return result
+
+
+# ==================== Export utilities ====================
 
 def _export_file(src_path: str, prefix: str, ext: str = ".hdf5") -> str:
-    """Copy a file to the export directory with a unique ID. Returns the file_id."""
     file_id = f"{prefix}_{uuid.uuid4().hex[:12]}"
     dest = os.path.join(EXPORT_DIR, file_id + ext)
     shutil.copy2(src_path, dest)
@@ -30,7 +62,6 @@ def _export_file(src_path: str, prefix: str, ext: str = ".hdf5") -> str:
 
 
 def _export_json(data: dict, prefix: str) -> str:
-    """Save JSON data to the export directory. Returns the file_id."""
     file_id = f"{prefix}_{uuid.uuid4().hex[:12]}"
     dest = os.path.join(EXPORT_DIR, file_id + ".json")
     with open(dest, "w", encoding="utf-8") as f:
@@ -39,7 +70,6 @@ def _export_json(data: dict, prefix: str) -> str:
 
 
 def _cleanup_old_exports():
-    """Remove export files older than EXPORT_MAX_AGE_HOURS."""
     cutoff = time.time() - EXPORT_MAX_AGE_HOURS * 3600
     for fname in os.listdir(EXPORT_DIR):
         fpath = os.path.join(EXPORT_DIR, fname)
@@ -47,13 +77,14 @@ def _cleanup_old_exports():
             os.remove(fpath)
 
 
+# ==================== File resolution helpers ====================
+
 async def _resolve_edf_file(
     tmp_dir: str,
     file: Optional[UploadFile],
     file_url: Optional[str],
     use_tracker: bool = True,
 ) -> str:
-    """Resolve EDF file from upload or URL, return local path."""
     if file and file.filename:
         if not file.filename.lower().endswith(".edf"):
             raise HTTPException(status_code=400, detail="Only .edf files are accepted")
@@ -75,10 +106,7 @@ async def _resolve_edf_file(
                 None, download_file_from_url, file_url, tmp_dir
             )
         except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Failed to download file from URL: {e}",
-            )
+            raise HTTPException(status_code=400, detail=f"下载文件失败: {e}")
         if not edf_path.lower().endswith(".edf"):
             raise HTTPException(
                 status_code=400,
@@ -89,10 +117,7 @@ async def _resolve_edf_file(
             tracker.start(os.path.basename(edf_path), file_size_mb)
         return edf_path
 
-    raise HTTPException(
-        status_code=400,
-        detail="Either 'file' (upload) or 'file_url' (URL) must be provided",
-    )
+    raise HTTPException(status_code=400, detail="必须提供 file（上传）或 file_url（URL）")
 
 
 async def _resolve_input_file(
@@ -101,7 +126,6 @@ async def _resolve_input_file(
     file_url: Optional[str],
     allowed_exts: tuple[str, ...] = (".edf", ".hdf5", ".h5"),
 ) -> str:
-    """Resolve uploaded file (EDF or HDF5) from upload or URL."""
     if file and file.filename:
         fname_lower = file.filename.lower()
         if not any(fname_lower.endswith(ext) for ext in allowed_exts):
@@ -121,192 +145,12 @@ async def _resolve_input_file(
     raise HTTPException(status_code=400, detail="必须提供 file（上传）或 file_url（URL）")
 
 
-# ==================== Download exported files ====================
-
-@router.get("/download/{file_id}")
-async def download_file(file_id: str):
-    """Download an exported file by file_id."""
-    _cleanup_old_exports()
-    for ext in (".hdf5", ".json"):
-        fpath = os.path.join(EXPORT_DIR, file_id + ext)
-        if os.path.isfile(fpath):
-            media_type = "application/x-hdf5" if ext == ".hdf5" else "application/json"
-            return FileResponse(
-                fpath,
-                media_type=media_type,
-                filename=file_id + ext,
-            )
-    raise HTTPException(status_code=404, detail="文件不存在或已过期")
-
-
-# ==================== Preprocess (EDF → HDF5, with export) ====================
-
-@router.post("/preprocess")
-async def preprocess(
-    file: Optional[UploadFile] = File(None),
-    file_url: Optional[str] = Form(None),
-):
-    with temp_directory() as tmp_dir:
-        edf_path = await _resolve_edf_file(tmp_dir, file, file_url, use_tracker=False)
-        hdf5_path = os.path.join(tmp_dir, os.path.basename(edf_path).rsplit(".", 1)[0] + ".hdf5")
-
-        loop = asyncio.get_event_loop()
-        info = await loop.run_in_executor(None, inference.preprocess_edf, edf_path, hdf5_path)
-
-        preprocessed_file_id = _export_file(hdf5_path, "preproc")
-
-    return {
-        "status": "success",
-        "channels": info["channels"],
-        "duration_seconds": info["duration_seconds"],
-        "sample_rate": info["sample_rate"],
-        "preprocessed_file_id": preprocessed_file_id,
-        "download_url": f"/api/v1/download/{preprocessed_file_id}",
-    }
-
-
-# ==================== Embed (HDF5/EDF → embeddings, with export) ====================
-
-@router.post("/embed")
-async def embed(
-    file: Optional[UploadFile] = File(None),
-    file_url: Optional[str] = Form(None),
-    preprocessed_file_id: Optional[str] = Form(None),
-):
-    try:
-        with temp_directory() as tmp_dir:
-            if preprocessed_file_id:
-                src = os.path.join(EXPORT_DIR, preprocessed_file_id + ".hdf5")
-                if not os.path.isfile(src):
-                    raise HTTPException(status_code=404, detail="预处理文件不存在或已过期")
-                hdf5_path = os.path.join(tmp_dir, preprocessed_file_id + ".hdf5")
-                shutil.copy2(src, hdf5_path)
-            else:
-                input_path = await _resolve_input_file(tmp_dir, file, file_url)
-                if input_path.lower().endswith((".hdf5", ".h5")):
-                    hdf5_path = input_path
-                else:
-                    basename = os.path.basename(input_path).rsplit(".", 1)[0]
-                    hdf5_path = os.path.join(tmp_dir, basename + ".hdf5")
-                    loop = asyncio.get_event_loop()
-                    await loop.run_in_executor(None, inference.preprocess_edf, input_path, hdf5_path)
-
-            emb_dir = os.path.join(tmp_dir, "emb")
-            loop = asyncio.get_event_loop()
-            async with _gpu_lock:
-                emb_dict = await loop.run_in_executor(
-                    None, inference.generate_embeddings, hdf5_path, emb_dir
-                )
-
-            emb_file = os.path.join(
-                emb_dir, os.path.splitext(os.path.basename(hdf5_path))[0] + ".hdf5"
-            )
-            embedding_file_id = _export_file(emb_file, "embed")
-
-        embeddings_info = {}
-        for mod, arr in emb_dict.items():
-            embeddings_info[mod] = {"shape": list(arr.shape)}
-
-        first_shape = next(iter(emb_dict.values())).shape if emb_dict else (0, 0)
-        return {
-            "status": "success",
-            "embeddings": embeddings_info,
-            "num_5min_chunks": first_shape[0] // 60 if len(first_shape) > 0 else 0,
-            "embed_dim": int(first_shape[1]) if len(first_shape) > 1 else 0,
-            "embedding_file_id": embedding_file_id,
-            "download_url": f"/api/v1/download/{embedding_file_id}",
-        }
-    except (ValueError, RuntimeError) as e:
-        logger.error(f"Embed error: {e}")
-        raise HTTPException(status_code=422, detail=str(e))
-
-
-# ==================== Sleep Staging (standalone) ====================
-
-@router.post("/sleep_staging")
-async def sleep_staging(
-    file: Optional[UploadFile] = File(None),
-    file_url: Optional[str] = Form(None),
-    embedding_file_id: Optional[str] = Form(None),
-):
-    """Standalone sleep staging: accepts embedding file or EDF for full pipeline."""
-    try:
-        with temp_directory() as tmp_dir:
-            emb_file = await _resolve_embedding_file(tmp_dir, file, file_url, embedding_file_id)
-
-            loop = asyncio.get_event_loop()
-            async with _gpu_lock:
-                staging_result = await loop.run_in_executor(
-                    None, inference.run_sleep_staging, emb_file
-                )
-
-        result_data = staging_result.model_dump()
-        result_file_id = _export_json(result_data, "staging")
-
-        return {
-            "status": "success",
-            "sleep_staging": result_data,
-            "result_file_id": result_file_id,
-            "download_url": f"/api/v1/download/{result_file_id}",
-        }
-    except (ValueError, RuntimeError) as e:
-        logger.error(f"Sleep staging error: {e}")
-        raise HTTPException(status_code=422, detail=str(e))
-
-
-# ==================== Disease Prediction (standalone) ====================
-
-@router.post("/disease_prediction")
-async def disease_prediction(
-    file: Optional[UploadFile] = File(None),
-    file_url: Optional[str] = Form(None),
-    embedding_file_id: Optional[str] = Form(None),
-    age: float = Form(...),
-    gender: int = Form(...),
-    min_hazard_score: Optional[float] = Form(None),
-):
-    """Standalone disease prediction: accepts embedding file + demographics."""
-    if age < 0 or age > 150:
-        raise HTTPException(status_code=400, detail="age must be between 0 and 150")
-    age_normalized = age / 100.0
-
-    try:
-        with temp_directory() as tmp_dir:
-            emb_file = await _resolve_embedding_file(tmp_dir, file, file_url, embedding_file_id)
-
-            loop = asyncio.get_event_loop()
-            async with _gpu_lock:
-                disease_result = await loop.run_in_executor(
-                    None, inference.run_disease_prediction, emb_file, age_normalized, gender
-                )
-
-        if min_hazard_score is not None:
-            filtered = [r for r in disease_result.top_risks if r.hazard_score >= min_hazard_score]
-            for i, item in enumerate(filtered, start=1):
-                item.rank = i
-            disease_result.top_risks = filtered
-
-        result_data = disease_result.model_dump()
-        result_file_id = _export_json(result_data, "disease")
-
-        return {
-            "status": "success",
-            "disease_prediction": result_data,
-            "result_file_id": result_file_id,
-            "download_url": f"/api/v1/download/{result_file_id}",
-        }
-    except (ValueError, RuntimeError) as e:
-        logger.error(f"Disease prediction error: {e}")
-        raise HTTPException(status_code=422, detail=str(e))
-
-
 async def _resolve_embedding_file(
     tmp_dir: str,
     file: Optional[UploadFile],
     file_url: Optional[str],
     embedding_file_id: Optional[str],
 ) -> str:
-    """Resolve embedding HDF5 file from various sources."""
     if embedding_file_id:
         src = os.path.join(EXPORT_DIR, embedding_file_id + ".hdf5")
         if not os.path.isfile(src):
@@ -317,9 +161,7 @@ async def _resolve_embedding_file(
 
     if file and file.filename:
         fname_lower = file.filename.lower()
-        if not fname_lower.endswith((".hdf5", ".h5")):
-            if fname_lower.endswith(".edf"):
-                return await _full_pipeline_to_embedding(tmp_dir, file=file)
+        if not fname_lower.endswith((".hdf5", ".h5", ".edf")):
             raise HTTPException(status_code=400, detail="请上传嵌入 HDF5 文件或 EDF 文件")
         dest = os.path.join(tmp_dir, file.filename)
         await save_upload_file(file, dest)
@@ -331,22 +173,262 @@ async def _resolve_embedding_file(
             dest = await loop.run_in_executor(None, download_file_from_url, file_url, tmp_dir)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"下载文件失败: {e}")
-        if dest.lower().endswith(".edf"):
-            return await _full_pipeline_to_embedding_from_edf(tmp_dir, dest)
         return dest
 
     raise HTTPException(status_code=400, detail="必须提供 embedding_file_id、file（上传）或 file_url（URL）")
 
 
-async def _full_pipeline_to_embedding(tmp_dir: str, file: UploadFile) -> str:
-    """EDF upload → preprocess → embed, return embedding path."""
-    edf_path = os.path.join(tmp_dir, file.filename)
-    await save_upload_file(file, edf_path)
-    return await _full_pipeline_to_embedding_from_edf(tmp_dir, edf_path)
+# ==================== Download exported files ====================
 
+@router.get("/download/{file_id}")
+async def download_file(file_id: str):
+    _cleanup_old_exports()
+    for ext in (".hdf5", ".json"):
+        fpath = os.path.join(EXPORT_DIR, file_id + ext)
+        if os.path.isfile(fpath):
+            media_type = "application/x-hdf5" if ext == ".hdf5" else "application/json"
+            return FileResponse(fpath, media_type=media_type, filename=file_id + ext)
+    raise HTTPException(status_code=404, detail="文件不存在或已过期")
+
+
+# ==================== Preprocess (async background) ====================
+
+async def _preprocess_background(task_id: str, tmp_dir: str, edf_path: str):
+    try:
+        basename = os.path.basename(edf_path).rsplit(".", 1)[0]
+        hdf5_path = os.path.join(tmp_dir, basename + ".hdf5")
+
+        loop = asyncio.get_event_loop()
+        info = await loop.run_in_executor(None, inference.preprocess_edf, edf_path, hdf5_path)
+
+        preprocessed_file_id = _export_file(hdf5_path, "preproc")
+        _finish_subtask(task_id, {
+            "channels": info["channels"],
+            "duration_seconds": info["duration_seconds"],
+            "sample_rate": info["sample_rate"],
+            "preprocessed_file_id": preprocessed_file_id,
+            "download_url": f"/api/v1/download/{preprocessed_file_id}",
+        })
+        logger.info(f"Preprocess subtask {task_id} done.")
+    except Exception as e:
+        logger.error(f"Preprocess error: {e}")
+        _fail_subtask(task_id, str(e))
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+@router.post("/preprocess")
+async def preprocess(
+    file: Optional[UploadFile] = File(None),
+    file_url: Optional[str] = Form(None),
+):
+    tmp_dir = tempfile.mkdtemp(prefix="sleepfm_preproc_")
+    try:
+        edf_path = await _resolve_edf_file(tmp_dir, file, file_url, use_tracker=False)
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+
+    task_id = _create_subtask()
+    asyncio.create_task(_preprocess_background(task_id, tmp_dir, edf_path))
+    return {"status": "accepted", "task_id": task_id}
+
+
+# ==================== Embed (async background) ====================
+
+async def _embed_background(task_id: str, tmp_dir: str, input_path: str, is_hdf5: bool):
+    try:
+        if is_hdf5:
+            hdf5_path = input_path
+        else:
+            basename = os.path.basename(input_path).rsplit(".", 1)[0]
+            hdf5_path = os.path.join(tmp_dir, basename + ".hdf5")
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, inference.preprocess_edf, input_path, hdf5_path)
+
+        emb_dir = os.path.join(tmp_dir, "emb")
+        loop = asyncio.get_event_loop()
+        async with _gpu_lock:
+            emb_dict = await loop.run_in_executor(
+                None, inference.generate_embeddings, hdf5_path, emb_dir
+            )
+
+        emb_file = os.path.join(
+            emb_dir, os.path.splitext(os.path.basename(hdf5_path))[0] + ".hdf5"
+        )
+        embedding_file_id = _export_file(emb_file, "embed")
+
+        embeddings_info = {mod: {"shape": list(arr.shape)} for mod, arr in emb_dict.items()}
+        first_shape = next(iter(emb_dict.values())).shape if emb_dict else (0, 0)
+
+        _finish_subtask(task_id, {
+            "embeddings": embeddings_info,
+            "num_5min_chunks": first_shape[0] // 60 if len(first_shape) > 0 else 0,
+            "embed_dim": int(first_shape[1]) if len(first_shape) > 1 else 0,
+            "embedding_file_id": embedding_file_id,
+            "download_url": f"/api/v1/download/{embedding_file_id}",
+        })
+        logger.info(f"Embed subtask {task_id} done.")
+    except Exception as e:
+        logger.error(f"Embed error: {e}")
+        _fail_subtask(task_id, str(e))
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+@router.post("/embed")
+async def embed(
+    file: Optional[UploadFile] = File(None),
+    file_url: Optional[str] = Form(None),
+    preprocessed_file_id: Optional[str] = Form(None),
+):
+    tmp_dir = tempfile.mkdtemp(prefix="sleepfm_embed_")
+    try:
+        if preprocessed_file_id:
+            src = os.path.join(EXPORT_DIR, preprocessed_file_id + ".hdf5")
+            if not os.path.isfile(src):
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+                raise HTTPException(status_code=404, detail="预处理文件不存在或已过期")
+            hdf5_path = os.path.join(tmp_dir, preprocessed_file_id + ".hdf5")
+            shutil.copy2(src, hdf5_path)
+            is_hdf5 = True
+        else:
+            input_path = await _resolve_input_file(tmp_dir, file, file_url)
+            is_hdf5 = input_path.lower().endswith((".hdf5", ".h5"))
+            hdf5_path = input_path
+    except HTTPException:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+
+    task_id = _create_subtask()
+    asyncio.create_task(_embed_background(task_id, tmp_dir, hdf5_path, is_hdf5))
+    return {"status": "accepted", "task_id": task_id}
+
+
+# ==================== Sleep Staging (async background) ====================
+
+async def _staging_background(task_id: str, tmp_dir: str, input_path: str):
+    try:
+        if input_path.lower().endswith(".edf"):
+            emb_file = await _full_pipeline_to_embedding_from_edf(tmp_dir, input_path)
+        elif not input_path.lower().endswith((".hdf5", ".h5")):
+            raise ValueError(f"不支持的文件格式: {os.path.basename(input_path)}")
+        else:
+            emb_file = input_path
+
+        loop = asyncio.get_event_loop()
+        async with _gpu_lock:
+            staging_result = await loop.run_in_executor(
+                None, inference.run_sleep_staging, emb_file
+            )
+
+        result_data = staging_result.model_dump()
+        result_file_id = _export_json(result_data, "staging")
+        _finish_subtask(task_id, {
+            "sleep_staging": result_data,
+            "result_file_id": result_file_id,
+            "download_url": f"/api/v1/download/{result_file_id}",
+        })
+        logger.info(f"Staging subtask {task_id} done.")
+    except Exception as e:
+        logger.error(f"Sleep staging error: {e}")
+        _fail_subtask(task_id, str(e))
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+@router.post("/sleep_staging")
+async def sleep_staging(
+    file: Optional[UploadFile] = File(None),
+    file_url: Optional[str] = Form(None),
+    embedding_file_id: Optional[str] = Form(None),
+):
+    tmp_dir = tempfile.mkdtemp(prefix="sleepfm_staging_")
+    try:
+        input_path = await _resolve_embedding_file(tmp_dir, file, file_url, embedding_file_id)
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+
+    task_id = _create_subtask()
+    asyncio.create_task(_staging_background(task_id, tmp_dir, input_path))
+    return {"status": "accepted", "task_id": task_id}
+
+
+# ==================== Disease Prediction (async background) ====================
+
+async def _disease_background(
+    task_id: str, tmp_dir: str, input_path: str,
+    age_normalized: float, gender: int, min_hazard_score: Optional[float],
+):
+    try:
+        if input_path.lower().endswith(".edf"):
+            emb_file = await _full_pipeline_to_embedding_from_edf(tmp_dir, input_path)
+        elif not input_path.lower().endswith((".hdf5", ".h5")):
+            raise ValueError(f"不支持的文件格式: {os.path.basename(input_path)}")
+        else:
+            emb_file = input_path
+
+        loop = asyncio.get_event_loop()
+        async with _gpu_lock:
+            disease_result = await loop.run_in_executor(
+                None, inference.run_disease_prediction, emb_file, age_normalized, gender
+            )
+
+        if min_hazard_score is not None:
+            filtered = [r for r in disease_result.top_risks if r.hazard_score >= min_hazard_score]
+            for i, item in enumerate(filtered, start=1):
+                item.rank = i
+            disease_result.top_risks = filtered
+
+        result_data = disease_result.model_dump()
+        result_file_id = _export_json(result_data, "disease")
+        _finish_subtask(task_id, {
+            "disease_prediction": result_data,
+            "result_file_id": result_file_id,
+            "download_url": f"/api/v1/download/{result_file_id}",
+        })
+        logger.info(f"Disease subtask {task_id} done.")
+    except Exception as e:
+        logger.error(f"Disease prediction error: {e}")
+        _fail_subtask(task_id, str(e))
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+@router.post("/disease_prediction")
+async def disease_prediction(
+    file: Optional[UploadFile] = File(None),
+    file_url: Optional[str] = Form(None),
+    embedding_file_id: Optional[str] = Form(None),
+    age: float = Form(...),
+    gender: int = Form(...),
+    min_hazard_score: Optional[float] = Form(None),
+):
+    if age < 0 or age > 150:
+        raise HTTPException(status_code=400, detail="age must be between 0 and 150")
+    age_normalized = age / 100.0
+
+    tmp_dir = tempfile.mkdtemp(prefix="sleepfm_disease_")
+    try:
+        input_path = await _resolve_embedding_file(tmp_dir, file, file_url, embedding_file_id)
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+
+    task_id = _create_subtask()
+    asyncio.create_task(
+        _disease_background(task_id, tmp_dir, input_path, age_normalized, gender, min_hazard_score)
+    )
+    return {"status": "accepted", "task_id": task_id}
+
+
+# ==================== Pipeline helpers ====================
 
 async def _full_pipeline_to_embedding_from_edf(tmp_dir: str, edf_path: str) -> str:
-    """EDF file → preprocess → embed, return embedding path."""
     basename = os.path.basename(edf_path).rsplit(".", 1)[0]
     hdf5_path = os.path.join(tmp_dir, basename + ".hdf5")
     emb_dir = os.path.join(tmp_dir, "emb")
@@ -371,7 +453,6 @@ async def _predict_background(
     gender: Optional[int],
     min_hazard_score: Optional[float],
 ):
-    """Run the full predict pipeline in the background."""
     try:
         basename = os.path.basename(edf_path).rsplit(".", 1)[0]
         hdf5_path = os.path.join(tmp_dir, basename + ".hdf5")

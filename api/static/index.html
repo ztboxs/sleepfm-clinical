@@ -276,6 +276,17 @@ input:focus, select:focus {
 .file-upload-text { font-size: 14px; color: var(--text-secondary); }
 .file-upload-text strong { color: var(--primary); }
 
+.file-size-warn {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--warning-bg);
+  color: #856404;
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+}
+
 .file-name {
   font-size: 14px;
   font-weight: 600;
@@ -1443,6 +1454,8 @@ function getFileInputError(prefix) {
 }
 
 /* ========== File Upload Areas ========== */
+const UPLOAD_WARN_SIZE_MB = 100;
+
 function setupFileUpload(uploadId, inputId, nameId) {
   const area = document.getElementById(uploadId);
   const input = document.getElementById(inputId);
@@ -1451,8 +1464,20 @@ function setupFileUpload(uploadId, inputId, nameId) {
   ['dragleave', 'drop'].forEach(e => area.addEventListener(e, () => area.classList.remove('dragover')));
   input.addEventListener('change', () => {
     if (input.files.length) {
-      nameEl.textContent = input.files[0].name + ' (' + (input.files[0].size / 1024 / 1024).toFixed(1) + ' MB)';
+      const sizeMB = input.files[0].size / 1024 / 1024;
+      nameEl.textContent = input.files[0].name + ' (' + sizeMB.toFixed(1) + ' MB)';
       area.classList.add('has-file');
+      let warn = area.querySelector('.file-size-warn');
+      if (sizeMB > UPLOAD_WARN_SIZE_MB) {
+        if (!warn) {
+          warn = document.createElement('div');
+          warn.className = 'file-size-warn';
+          area.appendChild(warn);
+        }
+        warn.textContent = `⚠️ 文件较大（${sizeMB.toFixed(0)} MB），上传和处理可能需要较长时间。如遇超时失败，可改用「文件 URL」方式或在服务器本地调用 API。`;
+      } else if (warn) {
+        warn.remove();
+      }
     }
   });
 }
@@ -1871,7 +1896,7 @@ async function runPredict() {
     try { d = JSON.parse(text); } catch {
       const isHtml = text.trim().startsWith('<');
       throw new Error(isHtml
-        ? `服务器返回了 HTML 而非 JSON（HTTP ${r.status}）。大文件上传可能被网络代理拦截，建议改用「文件 URL」方式传入。`
+        ? `请求失败（HTTP ${r.status}）。可能原因：网络超时或服务器异常。如果是大文件，可尝试使用「文件 URL」方式或在服务器本地调用 API。`
         : `响应解析失败（HTTP ${r.status}）：${text.substring(0, 200)}`);
     }
 
@@ -2097,6 +2122,23 @@ function clearStageFilter() {
   renderStagingEpochs(_stagingData.epochs, null);
 }
 
+
+/* ========== Subtask polling utility ========== */
+function pollSubtask(taskId) {
+  return new Promise((resolve, reject) => {
+    const check = async () => {
+      try {
+        const r = await fetch(API_BASE + '/api/v1/subtask_result/' + taskId);
+        const d = await r.json();
+        if (d.status === 'running') { setTimeout(check, 2000); return; }
+        if (d.status === 'error') { reject(new Error(d.detail || '处理失败')); return; }
+        resolve(d);
+      } catch (e) { reject(e); }
+    };
+    setTimeout(check, 1500);
+  });
+}
+
 /* ========== Preprocess ========== */
 async function runPreprocess() {
   const fd = getFileFormData('preproc');
@@ -2106,27 +2148,23 @@ async function runPreprocess() {
 
   try {
     const r = await fetch(API_BASE + '/api/v1/preprocess', { method: 'POST', body: fd });
-    const text = await r.text();
-    let d;
-    try { d = JSON.parse(text); } catch {
-      throw new Error(text.trim().startsWith('<')
-        ? `服务器返回了 HTML 而非 JSON（HTTP ${r.status}），大文件请改用「文件 URL」方式`
-        : `响应解析失败（HTTP ${r.status}）`);
-    }
+    const d = await r.json();
     if (!r.ok) throw new Error(d.detail || '请求失败');
 
-    _preprocFileId = d.preprocessed_file_id;
+    const result = await pollSubtask(d.task_id);
+
+    _preprocFileId = result.preprocessed_file_id;
     document.getElementById('preprocDownloadBtn').style.display = '';
     document.getElementById('preprocUseNextBtn').style.display = '';
     document.getElementById('preprocResults').classList.add('active');
     const info = document.getElementById('preprocInfo');
-    const ch = d.channels;
+    const ch = result.channels;
     info.innerHTML = `
       <div class="info-block">
         <h4>记录信息</h4>
-        <div class="health-item"><span class="key">时长</span><span class="val">${formatTime(d.duration_seconds)}（${d.duration_seconds.toFixed(0)} 秒）</span></div>
-        <div class="health-item"><span class="key">采样率</span><span class="val">${d.sample_rate} Hz</span></div>
-        <div class="health-item"><span class="key">文件 ID</span><span class="val" style="font-size:12px;word-break:break-all">${d.preprocessed_file_id}</span></div>
+        <div class="health-item"><span class="key">时长</span><span class="val">${formatTime(result.duration_seconds)}（${result.duration_seconds.toFixed(0)} 秒）</span></div>
+        <div class="health-item"><span class="key">采样率</span><span class="val">${result.sample_rate} Hz</span></div>
+        <div class="health-item"><span class="key">文件 ID</span><span class="val" style="font-size:12px;word-break:break-all">${result.preprocessed_file_id}</span></div>
       </div>
       <div class="info-block">
         <h4>按模态分组的通道</h4>
@@ -2140,7 +2178,7 @@ async function runPreprocess() {
         `).join('')}
       </div>
     `;
-    document.getElementById('preprocRawJson').innerHTML = syntaxHighlight(d);
+    document.getElementById('preprocRawJson').innerHTML = syntaxHighlight(result);
   } catch (e) {
     alert('错误：' + e.message);
   } finally {
@@ -2169,16 +2207,12 @@ async function runEmbed() {
 
   try {
     const r = await fetch(API_BASE + '/api/v1/embed', { method: 'POST', body: fd });
-    const text = await r.text();
-    let d;
-    try { d = JSON.parse(text); } catch {
-      throw new Error(text.trim().startsWith('<')
-        ? `服务器返回了 HTML 而非 JSON（HTTP ${r.status}），大文件请改用「文件 URL」方式`
-        : `响应解析失败（HTTP ${r.status}）`);
-    }
+    const d = await r.json();
     if (!r.ok) throw new Error(d.detail || '请求失败');
 
-    _embedFileId = d.embedding_file_id;
+    const result = await pollSubtask(d.task_id);
+
+    _embedFileId = result.embedding_file_id;
     document.getElementById('embedDownloadBtn').style.display = '';
     document.getElementById('embedUseForStagingBtn').style.display = '';
     document.getElementById('embedUseForDiseaseBtn').style.display = '';
@@ -2186,24 +2220,24 @@ async function runEmbed() {
     const info = document.getElementById('embedInfo');
     info.innerHTML = `
       <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
-        ${Object.entries(d.embeddings).map(([mod, e]) => `
+        ${Object.entries(result.embeddings).map(([mod, e]) => `
           <div class="stat-card">
             <div class="value" style="font-size:18px">${mod}</div>
             <div class="label">维度：${e.shape.join(' x ')}</div>
           </div>
         `).join('')}
         <div class="stat-card">
-          <div class="value" style="font-size:18px">${d.num_5min_chunks}</div>
+          <div class="value" style="font-size:18px">${result.num_5min_chunks}</div>
           <div class="label">5 分钟分片数</div>
         </div>
         <div class="stat-card">
-          <div class="value" style="font-size:18px">${d.embed_dim}</div>
+          <div class="value" style="font-size:18px">${result.embed_dim}</div>
           <div class="label">嵌入维度</div>
         </div>
       </div>
-      <div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">嵌入文件 ID：<strong>${d.embedding_file_id}</strong></div>
+      <div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">嵌入文件 ID：<strong>${result.embedding_file_id}</strong></div>
     `;
-    document.getElementById('embedRawJson').innerHTML = syntaxHighlight(d);
+    document.getElementById('embedRawJson').innerHTML = syntaxHighlight(result);
   } catch (e) {
     alert('错误：' + e.message);
   } finally {
@@ -2290,16 +2324,16 @@ async function runStaging() {
   setLoading('stagingBtn', true);
   try {
     const r = await fetch(API_BASE + '/api/v1/sleep_staging', { method: 'POST', body: fd });
-    const text = await r.text();
-    let d;
-    try { d = JSON.parse(text); } catch { throw new Error('响应解析失败'); }
+    const d = await r.json();
     if (!r.ok) throw new Error(d.detail || '请求失败');
 
-    _stagingResultFileId = d.result_file_id;
+    const result = await pollSubtask(d.task_id);
+
+    _stagingResultFileId = result.result_file_id;
     document.getElementById('stagingExportBtn').style.display = '';
     document.getElementById('stagingResults').classList.add('active');
 
-    const ss = d.sleep_staging;
+    const ss = result.sleep_staging;
     _standaloneStaging = ss;
     _standaloneStageFilter = null;
     renderStandaloneStaging(ss, null);
@@ -2389,16 +2423,16 @@ async function runDisease() {
   setLoading('diseaseBtn', true);
   try {
     const r = await fetch(API_BASE + '/api/v1/disease_prediction', { method: 'POST', body: fd });
-    const text = await r.text();
-    let d;
-    try { d = JSON.parse(text); } catch { throw new Error('响应解析失败'); }
+    const d = await r.json();
     if (!r.ok) throw new Error(d.detail || '请求失败');
 
-    _diseaseResultFileId = d.result_file_id;
+    const result = await pollSubtask(d.task_id);
+
+    _diseaseResultFileId = result.result_file_id;
     document.getElementById('diseaseExportBtn').style.display = '';
     document.getElementById('diseaseResults').classList.add('active');
 
-    const dp = d.disease_prediction;
+    const dp = result.disease_prediction;
     const count = dp.top_risks.length;
     const total = dp.all_hazards_count;
     document.getElementById('diseaseStandaloneCount').textContent =
