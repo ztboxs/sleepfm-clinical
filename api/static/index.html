@@ -87,6 +87,59 @@ body {
   margin-left: 8px;
 }
 
+.header-actions {
+  margin-left: auto;
+  margin-right: 16px;
+}
+
+.help-menu { position: relative; }
+
+.help-menu summary {
+  list-style: none;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.help-menu summary::-webkit-details-marker { display: none; }
+
+.help-menu summary:hover,
+.help-menu[open] summary {
+  background: var(--bg);
+  color: var(--primary);
+}
+
+.help-menu-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 260px;
+  padding: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 220;
+}
+
+.help-menu-popover a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.help-menu-popover a:hover { background: var(--primary-light); }
+.help-menu-popover strong { font-size: 14px; }
+.help-menu-popover span { font-size: 12px; color: var(--text-secondary); }
+
 /* ========== System Stats Bar ========== */
 .sys-stats {
   display: flex;
@@ -626,6 +679,9 @@ tr:hover td { background: var(--primary-light); }
   .stats-grid { grid-template-columns: repeat(3, 1fr); }
   .tabs { flex-wrap: wrap; }
   .sys-stats { display: none; }
+  .header-actions { margin-right: 8px; }
+  .help-menu-popover { right: -8px; width: 210px; }
+  .help-menu-popover span { display: none; }
 }
 
 .preprocess-info {
@@ -892,6 +948,15 @@ tr:hover td { background: var(--primary-light); }
   <div class="header-left">
     <div class="logo">S</div>
     <h1>SleepFM<span>临床模型 API 控制台</span></h1>
+  </div>
+  <div class="header-actions">
+    <details class="help-menu">
+      <summary>帮助 <span aria-hidden="true">▾</span></summary>
+      <div class="help-menu-popover">
+        <a href="/help"><strong>使用文档</strong><span>算法、训练、接口与部署说明</span></a>
+        <a href="/docs"><strong>API 调试文档</strong><span>打开 Swagger 接口页面</span></a>
+      </div>
+    </details>
   </div>
   <div class="sys-stats" id="sysStats">
     <div class="task-status-wrap">
