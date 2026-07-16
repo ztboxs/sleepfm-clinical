@@ -46,3 +46,12 @@ def test_algorithm_and_tuning_documents_cover_client_topics() -> None:
     tuning = read("训练与调优")
     for token in ("pretrain.py", "generate_embeddings.py", "验收指标", "调优请求"):
         assert token in tuning
+
+
+def test_api_and_test_guides_use_current_async_contracts() -> None:
+    api = read("接口文档")
+    testing = read("测试指南")
+    for content in (api, testing):
+        assert "/api/v1/subtask_result/{task_id}" in content
+        assert '"status": "accepted"' in content
+        assert "/api/v1/task_result" in content
