@@ -2,6 +2,7 @@ import os
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SLEEPFM_ROOT = os.path.join(PROJECT_ROOT, "sleepfm")
+DOCS_DIR = os.path.join(PROJECT_ROOT, "docs")
 
 CHECKPOINT_DIR = os.path.join(SLEEPFM_ROOT, "checkpoints")
 BASE_MODEL_DIR = os.path.join(CHECKPOINT_DIR, "model_base")
