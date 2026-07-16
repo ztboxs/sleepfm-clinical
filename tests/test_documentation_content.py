@@ -55,3 +55,16 @@ def test_api_and_test_guides_use_current_async_contracts() -> None:
         assert "/api/v1/subtask_result/{task_id}" in content
         assert '"status": "accepted"' in content
         assert "/api/v1/task_result" in content
+
+
+def test_deployment_document_covers_documentation_center() -> None:
+    deployment = read("部署文档")
+    for token in (
+        "/help",
+        "/api/v1/docs",
+        "api/routers/documentation.py",
+        "api/static/docs.html",
+        "帮助",
+        "使用文档",
+    ):
+        assert token in deployment
